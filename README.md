@@ -118,3 +118,22 @@ class Test_FileOperations(unittest.TestCase):
         self.mock_dbops_obj.BuildErrorMessage.return_value = "Error"
         with self.assertRaises(FileValidationException):
             fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_file_open(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'Annual Stmt - Sch D'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023JHUSASchD.csv']
+        mock_is_open.return_value = True
+        self.mock_dbops_obj.BuildErrorMessage.return_value = "Error"
+        with self.assertRaises(FileValidationException):
+            fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+
+    @patch('os.path.
