@@ -1,140 +1,264 @@
-import unittest
-from unittest.mock import MagicMock, patch, mock_open
-import sys
-import os
-import datetime
+import logging
 import shutil
-import pandas as pd
-from Services import CustomException
+import os
+from Entities.Customentities import ApihomeResp
+from Services import CustomException, dboperations as dbops
+from datetime import datetime
+import globalvars as gvar
+import datetime
+import re
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Services')))
+dbops_obj = dbops.dboperations()
+gvar.sadrd_settings = dbops_obj.SadrdSysSettings()
+gvar.sadrd_ErrMessages = dbops_obj.SADRD_Sys_Message()
 
-mock_sdp = MagicMock(name='SADRD_Dataparser')
-mock_fiops = MagicMock(name='fileoperations')
-mock_dbops = MagicMock(name='dboperations')
-mock_globalvars = MagicMock(name='globalvars')
+def ExtractFilesToLoad(folderpath, action):    
+    inpLoadFolder = ""    
+   
+    # Get list of input files to process
+    lsinpfiles = getinpfilenames_toprocess(folderpath,inpLoadFolder);
+    return lsinpfiles
 
-sys.modules['Services.SADRD_Dataparser'] = mock_sdp
-sys.modules['Services.fileoperations'] = mock_fiops
-sys.modules['Services.dboperations'] = mock_dbops
-sys.modules['globalvars'] = mock_globalvars
-sys.modules['Services.CustomException'] = CustomException
+def getinpfilenames_toprocess(folderpath,inpLoadFolder):
+    logging.debug("In getinpfilenames_toprocess() method")
 
-class TestParentParser(unittest.TestCase):
+    lsinpfiles = []  
+    Inputdirpath = os.path.join(folderpath, inpLoadFolder)
+    
+    for filename in os.listdir(Inputdirpath):
+         if filename.endswith(".xlsx") or filename.endswith(".xlsm") or filename.endswith(".csv"):
+            lsinpfiles.append(os.path.join(Inputdirpath, filename))
+            continue
+         else:
+            continue
 
-    def setUp(self):
-        mock_globalvars.fileErrorMessages = ""
-        mock_globalvars.filesLoadedCount = 0
-        mock_globalvars.user_id = 1
-        mock_globalvars.dataload_id = 1
-        mock_globalvars.gconfig = {
-            "DRIVER": "test_driver",
-            "SADRD_DATABASE_SERVER": "test_sadr_server",
-            "SADRD_DATABASE_NAME": "test_sadr_db",
-            "CONNECTION_AUTH_STRING": "test_auth",
-            "UV_DATABASE_SERVER": "test_uv_server",
-            "UV_DATABASE_NAME": "test_uv_db",
-            "UV_DATABASE_AUTH_STRING": "test_uv_auth",
-            "VPA_DATABASE_SERVER": "test_vpa_server",
-            "VPA_DATABASE_NAME": "test_vpa_db",
-            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
-        }
+    return lsinpfiles
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
-        mock_move.assert_called()
+def DownloadServerFilesToLoad(serverInputFilesByAction, Inputdirpath, action, year):
+    logging.debug("In DownloadServerFilesToLoad() method")
+    # Get list of input files to process
+    lsinpfiles = Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year);
+    return lsinpfiles
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
+def Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, inputYear):
+    logging.debug("In Downloadfilenames_toprocess() method")
+    try:
+        lsinpfiles = []        
+        inputFilesQtrList = []
+        lstInpfilesVerified = []
+        
+        errFileImport = ""
+        errFileImportWarning = ""
+
+        response = ApihomeResp()
+        
+        if not os.path.exists(Inputdirpath):
+            os.makedirs(Inputdirpath)
+
+        companyList = []
+        quartersList = []
+        for (row, sadrdSysSetting) in enumerate(gvar.sadrd_settings):
+            if sadrdSysSetting.settingName == "Valid_Company":
+                companyList.append(sadrdSysSetting.settingValue)
+            if sadrdSysSetting.settingName == "Valid_Quarter":
+                quartersList.append(sadrdSysSetting.settingValue)
+
+        if action =="Annual Stmt - Sch D":
+            datatbImportTypes = [x for x in gvar.sadrd_settings if x.settingName == 'Filename_AnnStmtSchD']
+            datatbImportType = datatbImportTypes[0].settingValue
+        elif action =="QualPctFTC":
+            datatbImportTypes = [x for x in gvar.sadrd_settings if x.settingName == 'Filename_QualFTC']
+            datatbImportType = datatbImportTypes[0].settingValue
+        elif action =="FTCGrossup":
+            datatbImportTypes = [x for x in gvar.sadrd_settings if x.settingName == 'Filename_FTCGrossup']
+            datatbImportType = datatbImportTypes[0].settingValue
+      
+        for filename in os.listdir(serverInputFilesByAction):
+            if (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm")):
+                if datatbImportType in filename and not filename.startswith("~$"):
+                    lsinpfiles.append(filename) 
+
+        for filename in lsinpfiles:
+            errMessage =""            
+            file_name_1 = filename.split(".")[0]
+            if file_name_1 != None:
+                #Next 4 lines extracts Company Name           
+                removeSpacesFromFileName = "".join(re.split("[ ]*", file_name_1)) #Eg '2019JHUSASchDPart2'
+                splitBySchD = removeSpacesFromFileName.split("SchD")#Eg ['2019JHUSA', 'Part2']
+                get1stSplitValueAftersplitBySchD = splitBySchD[0]#Eg 2019JHUSA
+                fileNameCompany = get1stSplitValueAftersplitBySchD[4:] #Eg JHUSA
+            if action == "FTCGrossup":
+                fileComponents = file_name_1.split("_")
+                fileQuarter = fileComponents[1]
+                inputFilesQtrList.append(fileQuarter)
+
+            if (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm")):
+                #if filename.startswith("~"):
+                #f = open(serverInputFilesByAction +"\\" + filename,'r')
+                #if(open(serverInputFilesByAction +"\\" + filename,'r').closed):
+                if is_open(serverInputFilesByAction +"\\" + filename) == True:
+                        errMessage = 'E006' + "," + filename + "," + "None"
+                        errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+
+                if (action =="Annual Stmt - Sch D" and datatbImportType not in filename ) or (action =="QualPctFTC" and  datatbImportType not in filename) or (action =="FTCGrossup" and  datatbImportType not in filename):
+                #if(action =="FTCGrossup" and  datatbImportType not in filename)
+                    errMessage = 'E013' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+                
+                if (action =="Annual Stmt - Sch D" and datatbImportType in filename and not filename.endswith(".csv")):
+                    errMessage = 'E003' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+                
+                if (action =="QualPctFTC" and datatbImportType in filename and (not filename.endswith(".xlsx") and not filename.endswith(".xls") and not filename.endswith(".xlsm"))):
+                    errMessage = 'E003' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+
+                if (action =="FTCGrossup" and datatbImportType in filename and (not filename.endswith(".xlsx") and not filename.endswith(".xls") and not filename.endswith(".xlsm"))):
+                    errMessage = 'E003' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+                
+                if (action =="FTCGrossup" and datatbImportType in filename and (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".xlsm")) and fileQuarter not in quartersList):
+                    errMessage = 'E013' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage)
+                
+                if (action =="Annual Stmt - Sch D" and datatbImportType in filename and fileNameCompany not in companyList):
+                    errMessage = 'E011' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage) 
+                                    
+                if int(inputYear) != int(filename[0:4]):                    
+                    errMessage = 'E012' + "," + filename + "," + "None"
+                    errFileImport = errMessage if errFileImport == '' else (errFileImport + "; " + errMessage) 
+
+                if errMessage == "":
+                    shutil.copyfile(serverInputFilesByAction + '//' + filename, Inputdirpath + '//' + filename)
+                    lstInpfilesVerified.append(os.path.join(Inputdirpath, filename))          
+                continue 
+
+        dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, action, 'Downloadfilenames_toprocess', str(datetime.datetime.now())[0:23], "Downloadfilenames_toprocess method executed", None)
+        
+        if errFileImport != "":
+            if len(lstInpfilesVerified) == 0:
+                errNoFilesMessage = 'E002' + "," + "" + "," + ""
+                errFileImport = errFileImport if errNoFilesMessage == '' else (errFileImport + "; " + errNoFilesMessage)
+                lstInpfilesVerified = []
+            errFileImport = errFileImport if errFileImportWarning == '' else (errFileImport + "; " + errFileImportWarning)
+            errMessageComplete = dbops_obj.BuildErrorMessage(errFileImport)         
+            raise CustomException.FileValidationException(errMessageComplete)
+    except Exception as e: 
+        dbops.logger.error('Error in Downloadfilenames_toprocess -' + str(e))
+        logging.exception("Exception occurred in Downloadfilenames_toprocess() method :: " + str(e)) 
+        raise e
+
+    if len(lsinpfiles) == 0 or (action == "FTCGrossup" and len(lsinpfiles) != 4):
+        if action == "FTCGrossup" and len(lsinpfiles) != 0:
+            errMessage = 'E028' + "," + "" + "," + ""
+        else:
+            errMessage = 'E002' + "," + "" + "," + ""
+        response.status = "Failure"
+        response.message = dbops_obj.BuildErrorMessage(errMessage)
+        dbops.logger.error(response.message)
+        raise CustomException.FileValidationException(response.message)
+    
+    if (action == "FTCGrossup"):
+        qtrValidationList = [item for item in quartersList if item not in inputFilesQtrList]   
+        if len(qtrValidationList) != 0:
+            errMessage = 'E032' + "," + ' | '.join(qtrValidationList) + "," + "None" 
+            response.status = "Failure"
+            response.message = dbops_obj.BuildErrorMessage(errMessage)
+            dbops.logger.error(response.message)
+            raise CustomException.FileValidationException(response.message)
+    
+    return lstInpfilesVerified
+
+def is_open(file_name):
+    if os.path.exists(file_name):
+        try:
+            os.rename(file_name, file_name) #can't rename an open file so an error will be thrown
+            return False
+        except:
+            return True
+    raise NameError
+
+
+    import unittest
+from unittest.mock import MagicMock, patch
+import os
+# from Services.fileoperations import is_open, getinpfilenames_toprocess
+
+mock_method = patch('Services.dboperations', spec=True).start()
+with patch("Services.dboperations") as mock_dbos:
+    import Services.fileoperations as fo
+
+class Test_FileOperations(unittest.TestCase):
+       
+    # @patch('Services.fileoperations.getinpfilenames_toprocess')
+    # def test_ExtractFilesToLoad(self, mockinfileNames):
+    #     mockinfileNames.return_value='file.txt'
+    #     folderpath='test/folder'
+    #     action= 'test'
+    #     filename=fo.ExtractFilesToLoad(folderpath,action)
+    #     assert filename=='file.txt'
+
+    # @patch('Services.fileoperations.Downloadfilenames_toprocess')
+    # def test_DownloadServerFilesToLoad(self, mockdwnldFile):
+    #     mockdwnldFile.return_value='file.txt'
+    #     serverInputFilesByAction='Save'
+    #     Inputdirpath='c/temp'
+    #     action='test'
+    #     year=2020
+    #     lsinpfiles = fo.DownloadServerFilesToLoad(serverInputFilesByAction, Inputdirpath, action, year)
+    #     assert lsinpfiles=='file.txt'
+    
+    # @patch('os.path.exists')
+    # @patch('os.rename')
+    # def test_is_open(self, mockospath, mockosrename):
+    #     mockospath.return_value=True
+    #     mockosrename.return_value=True
+    #     assert fo.is_open('test')==False
+
+    @patch('os.path.exists')
+    @patch('os.rename')
+    def test_file_not_exists(self, mock_rename, mock_exists):
         mock_exists.return_value = False
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_called()
-        mock_copyfile.assert_called()
+        with self.assertRaises(NameError):
+            isopen('dummy_file')
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exists(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
+
+    @patch('os.path.exists')
+    @patch('os.rename')
+    def test_file_exists_and_open(self, mock_rename, mock_exists):
         mock_exists.return_value = True
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_not_called()
-        mock_copyfile.assert_called()
+        mock_rename.side_effect = OSError
+        self.assertTrue(fo.is_open('dummy_file'))
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move_exception(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
+    @patch('os.path.exists')
+    @patch('os.rename')
+    def test_file_exists_and_not_open(self, mock_rename, mock_exists):
+        mock_exists.return_value = True
+        mock_rename.return_value = None
+        self.assertFalse(fo.is_open('dummy_file'))
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exception(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = False
-        with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
+    @patch('os.path.join')
+    @patch('os.listdir')
+    def test_getinpfilenames_toprocess(self, mock_listdir, mock_path_join):
+        folderpath = 'test_folder'
+        inpLoadFolder = 'input_files'
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
-    def test_parentparser_qualpctftc(self, mock_download, mock_dbops_constructor):
-        from Services.parentparser import parentparser
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sadrd_ErrMessages = []
-        mock_globalvars.filesLoadedCount = 1
-        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
-        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+        mock_path_join.side_effect = lambda a, b: f'{a}/{b}'
+        mock_listdir.return_value = [
+            'file1.xlsx', 'file2.xlsm', 'file3.csv', 'file4.txt'
+        ]   
 
-        serverInputFilesByAction = {}
-        Inputdirpath = "/path/to/inputdir"
-        import_type = "QualPctFTC"
-        Year = 2025
-        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
-        mock_sdp.parseCusipQualFTCFile.return_value = None
-        mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
-        mock_dbops_instance.executeSADRD_SP.return_value = None
-        mock_dbops_instance.insert_actionLog.return_value = None
+        expected_files = [
+            'test_folder/input_files/file1.xlsx',
+            'test_folder/input_files/file2.xlsm',
+            'test_folder/input_files/file3.csv'
+        ]
 
-        result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
+        result = fo.getinpfilenames_toprocess(folderpath, inpLoadFolder)
 
-        self.assertEqual(result.status, "Success")
-        self.assertEqual(result.message, "QualPctFTC - Success Message")
-        mock_sdp.parseCusipQualFTCFile.assert_called()
-
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
-    def test_parentparser_ftcgrossup(self, mock_download, mock_dbops_constructor):
-        from
+        self.assertEqual(result, expected_files)
+        mock_path_join.assert_any_call('test_folder', 'input_files')
+        mock_path_join.assert_any_call('test_folder/input_files', 'file1.xlsx')
+        mock_path_join.assert_any_call('test_folder/input_files', 'file2.xlsm')
+        mock_path_join.assert_any_call('test_folder/input_files', 'file3.csv')
