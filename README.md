@@ -54,7 +54,7 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_dbops_instance.SadrdSysSettings.return_value = [
+        mock_globalvars.sadrd_settings = [
             MagicMock(settingName="Valid_Company", settingValue="test_company"),
             MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
         ]
@@ -69,13 +69,12 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_dbops_instance.SadrdSysSettings.return_value = [
+        mock_globalvars.sadrd_settings = [
             MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y"),
             MagicMock(settingName="Valid_Company", settingValue="test_company"),
             MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
         ]
-        # Return a DataFrame with 5 columns
-        mock_execute_view.return_value = pd.DataFrame(columns=range(5))
+        mock_execute_view.return_value = pd.DataFrame()
         parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
         mock_execute_view.assert_called()
         mock_load_cusip.assert_called()
@@ -87,7 +86,7 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_dbops_instance.SadrdSysSettings.return_value = [
+        mock_globalvars.sadrd_settings = [
             MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N"),
             MagicMock(settingName="Valid_Company", settingValue="test_company"),
             MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
