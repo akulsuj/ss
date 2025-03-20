@@ -143,8 +143,4 @@ class Test_FileOperations(unittest.TestCase):
     @patch('Services.fileoperations.is_open')
     def test_Downloadfilenames_toprocess_no_files(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
         serverInputFilesByAction = 'server_files'
-        Inputdirpath = 'local_files'
-        action = 'Annual Stmt - Sch D'
-        year = '2023'
-        mock_exists.return_value = True
-        mock_listdir.return_value = []
+        Inputdirpath = 'local_
