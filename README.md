@@ -37,74 +37,92 @@ class TestParentParser(unittest.TestCase):
             "UV_DATABASE_AUTH_STRING": "test_uv_auth",
             "VPA_DATABASE_SERVER": "test_vpa_server",
             "VPA_DATABASE_NAME": "test_vpa_db",
-            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
+            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth",
+            "SQLALCHEMYODBC": "DRIVER=%(driver)s;SERVER=%(server)s;DATABASE=%(database)s;UID=%(uid)s;PWD=%(pwd)s"
+        }
+        mock_globalvars.sqlconfig = {
+            "driver": "test_driver",
+            "server": "test_sadr_server",
+            "database": "test_sadr_db",
+            "uid": "test_uid",
+            "pwd": "test_pwd"
         }
 
-    # ... (rest of the test cases from the previous response) ...
-
     @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    @patch('Services.parentparser.sdp.parseCusipQualFTCFile')
+    @patch('Services.parentparser.sdp.parseJHFundsFTCGrossupFile')
+    def test_parentparser_qualpctftc(self, mock_parse_grossup, mock_parse_cusip, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
-        mock_move.assert_called()
+        mock_download.return_value = ["/input/dir/file1.txt"]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "QualPctFTC", 2025)
+        mock_parse_cusip.assert_called()
 
     @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    @patch('Services.parentparser.sdp.parseCusipQualFTCFile')
+    @patch('Services.parentparser.sdp.parseJHFundsFTCGrossupFile')
+    def test_parentparser_ftcgrossup(self, mock_parse_grossup, mock_parse_cusip, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = False
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_called()
-        mock_copyfile.assert_called()
+        mock_download.return_value = ["/input/dir/file1.txt"]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "FTCGrossup", 2025)
+        mock_parse_grossup.assert_called()
 
     @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exists(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    @patch('Services.parentparser.sdp.parseAnnualStmntFile')
+    def test_parentparser_annual_stmt(self, mock_parse_annual, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = True
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_not_called()
-        mock_copyfile.assert_called()
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "Annual Stmt - Sch D", 2025)
+        mock_parse_annual.assert_called()
 
     @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move_exception(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
+    @patch('Services.parentparser.sdp.executeView_GetDetails')
+    @patch('Services.parentparser.sdp.Load_FundCusipDetails')
+    @patch('Services.parentparser.sdp.LoadVPADataToSADRD')
+    def test_parentparser_generate_sadrd_report(self, mock_load_vpa, mock_load_cusip, mock_execute_view, mock_dbops_constructor):
+        from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y")]
+        mock_execute_view.return_value = pd.DataFrame()
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
+        mock_execute_view.assert_called()
+        mock_load_cusip.assert_called()
+        mock_load_vpa.assert_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.sdp.executeView_GetDetails')
+    def test_parentparser_generate_sadrd_report_no_refresh(self, mock_execute_view, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N")]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
+        mock_execute_view.assert_not_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad', side_effect=Exception("Test Exception"))
+    def test_parentparser_file_exception(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
         with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
+            parentparser({"action1": ["file1.txt"]}, "/input/dir/", "QualPctFTC", 2025)
 
     @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exception(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
+    @patch('Services.parentparser.sdp.parseAnnualStmntFile', side_effect=Exception("Test Exception"))
+    def test_parentparser_annual_exception(self, mock_parse_annual, mock_dbops_constructor):
+        from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = False
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
         with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-
+            parentparser({"action1": ["file
