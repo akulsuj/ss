@@ -1,78 +1,142 @@
- pytest --cov . test/ --cov-report html                                   
-================================================== test session starts ================================================== 
-platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
-rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
-plugins: Flask-Dance-3.2.0, cov-4.0.0
-collected 81 items / 1 error
+import unittest
+from unittest.mock import MagicMock, patch
+import os
+import datetime
+import shutil
 
-======================================================== ERRORS ========================================================= 
-_________________________________ ERROR collecting test/Services/test_fileoperations.py _________________________________ 
-venv\lib\site-packages\_pytest\python.py:618: in _importtestmodule
-    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
-venv\lib\site-packages\_pytest\pathlib.py:533: in import_path
-    importlib.import_module(module_name)
-C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-<frozen importlib._bootstrap>:1030: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1007: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:680: in _load_unlocked
-    ???
-venv\lib\site-packages\_pytest\assertion\rewrite.py:159: in exec_module
-    source_stat, co = _rewrite_test(fn, self.config)
-venv\lib\site-packages\_pytest\assertion\rewrite.py:337: in _rewrite_test
-    tree = ast.parse(source, filename=strfn)
-C:\Program Files\Python39\lib\ast.py:50: in parse
-    return compile(source, filename, mode, flags,
-E     File "C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\Services\test_fileoperations.py", line 143
-E       @patch('Services.fileoperations.is_open')
-E                                                ^
-E   SyntaxError: unexpected EOF while parsing
-=================================================== warnings summary ==================================================== 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _nlv = LooseVersion(_np_version)
+mock_method = patch('Services.dboperations', spec=True).start()
+with patch("Services.dboperations") as mock_dbos:
+    import Services.fileoperations as fo
+    from Services.CustomException import FileValidationException
+    from Entities.Customentities import ApihomeResp
+    import globalvars as gvar
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p17 = _nlv < LooseVersion("1.17")
+class Test_FileOperations(unittest.TestCase):
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p18 = _nlv < LooseVersion("1.18")
+    def setUp(self):
+        self.mock_dbops_obj = MagicMock()
+        fo.dbops_obj = self.mock_dbops_obj
+        gvar.sadrd_settings = [
+            MagicMock(settingName="Valid_Company", settingValue="JHUSA"),
+            MagicMock(settingName="Valid_Quarter", settingValue="Q1"),
+            MagicMock(settingName="Valid_Quarter", settingValue="Q2"),
+            MagicMock(settingName="Valid_Quarter", settingValue="Q3"),
+            MagicMock(settingName="Valid_Quarter", settingValue="Q4"),
+            MagicMock(settingName="Filename_AnnStmtSchD", settingValue="SchD"),
+            MagicMock(settingName="Filename_QualFTC", settingValue="QualFTC"),
+            MagicMock(settingName="Filename_FTCGrossup", settingValue="FTCGrossup"),
+        ]
+        gvar.sadrd_ErrMessages = MagicMock()
+        gvar.user_id = 1
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+    @patch('os.path.join')
+    @patch('os.listdir')
+    def test_getinpfilenames_toprocess(self, mock_listdir, mock_path_join):
+        folderpath = 'test_folder'
+        inpLoadFolder = 'input_files'
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+        mock_path_join.side_effect = lambda *args: os.path.normpath(os.sep.join(args))
+        mock_listdir.return_value = [
+            'file1.xlsx', 'file2.xlsm', 'file3.csv', 'file4.txt'
+        ]
 
-venv\lib\site-packages\setuptools\_distutils\version.py:337
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    other = LooseVersion(other)
+        expected_files = [
+            os.path.join('test_folder', 'input_files', 'file1.xlsx'),
+            os.path.join('test_folder', 'input_files', 'file2.xlsm'),
+            os.path.join('test_folder', 'input_files', 'file3.csv')
+        ]
 
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
+        result = fo.getinpfilenames_toprocess(folderpath, inpLoadFolder)
 
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
-    from flask import _app_ctx_stack, abort, current_app, request
+        self.assertEqual(result, expected_files)
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_annual_schd_success(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'Annual Stmt - Sch D'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023JHUSASchD.csv']
+        mock_is_open.return_value = False
 
----------- coverage: platform win32, python 3.9.13-final-0 -----------
-Coverage HTML written to dir htmlcov
+        result = fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+        self.assertEqual(result, [os.path.join('local_files', '2023JHUSASchD.csv')])
 
-================================================ short test summary info ================================================ 
-ERROR test/Services/test_fileoperations.py
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-============================================= 10 warnings, 1 error in 2.86s ============================================= 
-PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_qualftc_success(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'QualPctFTC'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023QualFTC.xlsx']
+        mock_is_open.return_value = False
+
+        result = fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+        self.assertEqual(result, [os.path.join('local_files', '2023QualFTC.xlsx')])
+
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_ftcgrossup_success(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'FTCGrossup'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023_Q1_FTCGrossup.xlsx', '2023_Q2_FTCGrossup.xlsx', '2023_Q3_FTCGrossup.xlsx', '2023_Q4_FTCGrossup.xlsx']
+        mock_is_open.return_value = False
+
+        expected = [os.path.join('local_files', f'2023_Q{i}_FTCGrossup.xlsx') for i in range(1, 5)]
+        result = fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+        self.assertEqual(result, expected)
+
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_wrong_file_type(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'Annual Stmt - Sch D'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023JHUSASchD.xlsx']
+        mock_is_open.return_value = False
+        self.mock_dbops_obj.BuildErrorMessage.return_value = "Error"
+        with self.assertRaises(FileValidationException):
+            fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('shutil.copyfile')
+    @patch('Services.fileoperations.is_open')
+    def test_Downloadfilenames_toprocess_file_open(self, mock_is_open, mock_copyfile, mock_listdir, mock_makedirs, mock_exists):
+        serverInputFilesByAction = 'server_files'
+        Inputdirpath = 'local_files'
+        action = 'Annual Stmt - Sch D'
+        year = '2023'
+        mock_exists.return_value = True
+        mock_listdir.return_value = ['2023JHUSASchD.csv']
+        mock_is_open.return_value = True
+        self.mock_dbops_obj.BuildErrorMessage.return_value = "Error"
+        with self.assertRaises(FileValidationException):
+            fo.Downloadfilenames_toprocess(serverInputFilesByAction, Inputdirpath, action, year)
+
+    @patch('os.path.exists')
+    @patch('os.makedirs')
+    @patch('os.listdir')
+    @patch('
