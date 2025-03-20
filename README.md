@@ -1,8 +1,9 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 import sys
 import os
 import datetime
+import shutil
 import pandas as pd
 from Services import CustomException
 
@@ -54,12 +55,32 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [
-            MagicMock(settingName="Valid_Company", settingValue="test_company"),
-            MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
-        ]
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
         parentparser({"action1": ["file1.txt"]}, "/input/dir/", "Annual Stmt - Sch D", 2025)
         mock_parse_annual.assert_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    @patch('Services.parentparser.sdp.parseCusipQualFTCFile')
+    @patch('Services.parentparser.sdp.parseJHFundsFTCGrossupFile')
+    def test_parentparser_qualpctftc(self, mock_parse_grossup, mock_parse_cusip, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_download.return_value = ["/input/dir/file1.txt"]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "QualPctFTC", 2025)
+        mock_parse_cusip.assert_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    @patch('Services.parentparser.sdp.parseJHFundsFTCGrossupFile')
+    def test_parentparser_ftcgrossup(self, mock_parse_grossup, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_download.return_value = ["/input/dir/file1.txt"]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "FTCGrossup", 2025)
+        mock_parse_grossup.assert_called()
 
     @patch('Services.parentparser.dbops.dboperations')
     @patch('Services.parentparser.sdp.executeView_GetDetails')
@@ -69,11 +90,7 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [
-            MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y"),
-            MagicMock(settingName="Valid_Company", settingValue="test_company"),
-            MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
-        ]
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y"), MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
         mock_execute_view.return_value = pd.DataFrame()
         parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
         mock_execute_view.assert_called()
@@ -86,10 +103,5 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [
-            MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N"),
-            MagicMock(settingName="Valid_Company", settingValue="test_company"),
-            MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")
-        ]
-        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
-        mock_execute_view.assert_called()
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N"), MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSAD
