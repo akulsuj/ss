@@ -1,78 +1,66 @@
- pytest --cov . test/ --cov-report html
-===================================================== test session starts =====================================================
-platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
-rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
-plugins: Flask-Dance-3.2.0, cov-4.0.0
-collected 80 items / 1 error
+import unittest
+from unittest.mock import MagicMock, patch, mock_open
+import sys
+import os
+import datetime
+import shutil
+import pandas as pd
+from Services import CustomException
 
-=========================================================== ERRORS ============================================================ 
-_____________________________________ ERROR collecting test/Services/test_parentparser.py _____________________________________ 
-venv\lib\site-packages\_pytest\python.py:618: in _importtestmodule
-    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
-venv\lib\site-packages\_pytest\pathlib.py:533: in import_path
-    importlib.import_module(module_name)
-C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-<frozen importlib._bootstrap>:1030: in _gcd_import
-    ???
-<frozen importlib._bootstrap>:1007: in _find_and_load
-    ???
-<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
-    ???
-<frozen importlib._bootstrap>:680: in _load_unlocked
-    ???
-venv\lib\site-packages\_pytest\assertion\rewrite.py:159: in exec_module
-    source_stat, co = _rewrite_test(fn, self.config)
-venv\lib\site-packages\_pytest\assertion\rewrite.py:337: in _rewrite_test
-    tree = ast.parse(source, filename=strfn)
-C:\Program Files\Python39\lib\ast.py:50: in parse
-    return compile(source, filename, mode, flags,
-E     File "C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\Services\test_parentparser.py", line 52
-E       mock_globalvars.sadrd_ErrMessages =
-E                                          ^
-E   SyntaxError: invalid syntax
-====================================================== warnings summary ======================================================= 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _nlv = LooseVersion(_np_version)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Services')))
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p17 = _nlv < LooseVersion("1.17")
+mock_sdp = MagicMock(name='SADRD_Dataparser')
+mock_fiops = MagicMock(name='fileoperations')
+mock_dbops = MagicMock(name='dboperations')
+mock_globalvars = MagicMock(name='globalvars')
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p18 = _nlv < LooseVersion("1.18")
+sys.modules['Services.SADRD_Dataparser'] = mock_sdp
+sys.modules['Services.fileoperations'] = mock_fiops
+sys.modules['Services.dboperations'] = mock_dbops
+sys.modules['globalvars'] = mock_globalvars
+sys.modules['Services.CustomException'] = CustomException
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+class TestParentParser(unittest.TestCase):
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+    def setUp(self):
+        mock_globalvars.fileErrorMessages = ""
+        mock_globalvars.filesLoadedCount = 0
+        mock_globalvars.user_id = 1
+        mock_globalvars.dataload_id = 1
+        mock_globalvars.gconfig = {
+            "DRIVER": "test_driver",
+            "SADRD_DATABASE_SERVER": "test_sadr_server",
+            "SADRD_DATABASE_NAME": "test_sadr_db",
+            "CONNECTION_AUTH_STRING": "test_auth",
+            "UV_DATABASE_SERVER": "test_uv_server",
+            "UV_DATABASE_NAME": "test_uv_db",
+            "UV_DATABASE_AUTH_STRING": "test_uv_auth",
+            "VPA_DATABASE_SERVER": "test_vpa_server",
+            "VPA_DATABASE_NAME": "test_vpa_db",
+            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
+        }
 
-venv\lib\site-packages\setuptools\_distutils\version.py:337
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    other = LooseVersion(other)
+    # ... (rest of the code) ...
 
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    def test_parentparser_ftcgrossup_file_error_e026(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
+        mock_globalvars.sadrd_ErrMessages = [] # Corrected line
+        mock_globalvars.fileErrorMessages = "E026, Error Message"
+        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+        mock_dbops_instance.BuildErrorMessage.return_value = "Error Message"
 
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
-    from flask import _app_ctx_stack, abort, current_app, request
+        serverInputFilesByAction = {}
+        Inputdirpath = "/path/to/inputdir"
+        import_type = "FTCGrossup"
+        Year = 2025
+        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
+        mock_sdp.parseJHFundsFTCGrossupFile.return_value = None
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-
----------- coverage: platform win32, python 3.9.13-final-0 -----------
-Coverage HTML written to dir htmlcov
-
-=================================================== short test summary info =================================================== 
-ERROR test/Services/test_parentparser.py
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-================================================ 10 warnings, 1 error in 2.79s ================================================ 
-PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
+        with self.assertRaises(CustomException.FileValidationException):
+            parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
