@@ -1,110 +1,95 @@
 import unittest
-from unittest.mock import MagicMock, patch, mock_open
-import sys
+from unittest.mock import patch, mock_open
 import os
-import datetime
-import shutil
-import pandas as pd
-from Services import CustomException
+from datetime import datetime
+from pathlib import Path
+import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Services')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../Services')))
+from Services.logoperations import currentDateTimeWithTimezone, insertServerEventLog
 
-mock_sdp = MagicMock(name='SADRD_Dataparser')
-mock_fiops = MagicMock(name='fileoperations')
-mock_dbops = MagicMock(name='dboperations')
-mock_globalvars = MagicMock(name='globalvars')
+class TestLoggingFunctions(unittest.TestCase):
 
-sys.modules['Services.SADRD_Dataparser'] = mock_sdp
-sys.modules['Services.fileoperations'] = mock_fiops
-sys.modules['Services.dboperations'] = mock_dbops
-sys.modules['globalvars'] = mock_globalvars
-sys.modules['Services.CustomException'] = CustomException
+    def test_currentDateTimeWithTimezone(self):
+        result = currentDateTimeWithTimezone()
+        try:
+            datetime.strptime(result, '%Y-%m-%dT%H:%M:%S.%f%z')
+        except ValueError:
+            self.fail("currentDateTimeWithTimezone() returned an invalid datetime format")
 
-class TestParentParser(unittest.TestCase):
+        self.assertIn(result[23:24], ['+', '-'])
+        self.assertEqual(result[26], ':')
 
-    def setUp(self):
-        mock_globalvars.fileErrorMessages = ""
-        mock_globalvars.filesLoadedCount = 0
-        mock_globalvars.user_id = 1
-        mock_globalvars.dataload_id = 1
-        mock_globalvars.gconfig = {
-            "DRIVER": "test_driver",
-            "SADRD_DATABASE_SERVER": "test_sadr_server",
-            "SADRD_DATABASE_NAME": "test_sadr_db",
-            "CONNECTION_AUTH_STRING": "test_auth",
-            "UV_DATABASE_SERVER": "test_uv_server",
-            "UV_DATABASE_NAME": "test_uv_db",
-            "UV_DATABASE_AUTH_STRING": "test_uv_auth",
-            "VPA_DATABASE_SERVER": "test_vpa_server",
-            "VPA_DATABASE_NAME": "test_vpa_db",
-            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
-        }
+    @patch('builtins.open', new_callable=mock_open)
+    @patch('Services.logoperations.currentDateTimeWithTimezone', return_value='2021-12-05T08:33:53.165-05:00')
+    def test_insertServerEventLog(self, mock_current_time, mock_open):
+        environment = 'local'
+        serverLogFilesFolder = '/fake/path'
+        eventType = 'Login'
+        eventCriticality = 'INFO'
+        networkId = 'user123'
+        apiEndpoint = 'http://example.com'
+        apiFunction = 'login'
+        activityId = 'activity123'
+        userIp = '192.168.1.1'
+        appServerIP = '10.0.0.1'
+        logStandard = 'RFC5424'
+        expected_path = str(Path.cwd().parent.joinpath('Logs', 'US_Tax_SADRD.log'))
 
-    # ... (rest of the test cases from the previous response) ...
+        insertServerEventLog(environment, serverLogFilesFolder, eventType, eventCriticality, networkId,
+                              apiEndpoint, apiFunction, activityId, userIp, appServerIP, logStandard)
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
-        mock_move.assert_called()
+        mock_open.assert_called_once()
+        actual_path = mock_open.call_args[0][0]
+        self.assertEqual(os.path.normpath(actual_path), os.path.normpath(expected_path))
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = False
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_called()
-        mock_copyfile.assert_called()
+        handle = mock_open()
+        handle.write.assert_called_once()
+        written_log = handle.write.call_args[0][0]
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile')
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exists(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = True
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
-        mock_makedirs.assert_not_called()
-        mock_copyfile.assert_called()
+        self.assertIn('"LogStandard": "RFC5424"', written_log)
+        self.assertIn('"EventTime": "2021-12-05T08:33:53.165-05:00"', written_log)
+        self.assertIn('"LoginResult": "Login"', written_log)
+        self.assertIn('"LogLevel": "INFO"', written_log)
+        self.assertIn('"Username": "user123"', written_log)
+        self.assertIn('"AppURL": "http://example.com/api/login"', written_log)
+        self.assertIn('"ActivityID": "activity123"', written_log)
+        self.assertIn('"SourceIP": "192.168.1.1"', written_log)
+        self.assertIn('"AppServerIP": "10.0.0.1"', written_log)
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move_exception(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
+    @patch('builtins.open', new_callable=mock_open)
+    @patch('Services.logoperations.currentDateTimeWithTimezone', return_value='2021-12-05T08:33:53.165-05:00')
+    def test_insertServerEventLog_with_different_environment(self, mock_current_time, mock_open):
+        environment = 'production'
+        serverLogFilesFolder = '/fake/path'
+        eventType = 'Logout'
+        eventCriticality = 'ERROR'
+        networkId = 'user456'
+        apiEndpoint = 'http://example.com'
+        apiFunction = 'logout'
+        activityId = 'activity456'
+        userIp = '192.168.1.2'
+        appServerIP = '10.0.0.2'
+        logStandard = 'RFC5424'
+        expected_path = os.path.join(serverLogFilesFolder, 'US_Tax_SADRD.log')
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.copyfile', side_effect=Exception("Test Exception"))
-    @patch('Services.parentparser.os.makedirs')
-    @patch('Services.parentparser.os.path.exists')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_copy_exception(self, mock_split, mock_exists, mock_makedirs, mock_copyfile, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_exists.return_value = False
-        with self.assertRaises(Exception):
-            copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "yes")
+        insertServerEventLog(environment, serverLogFilesFolder, eventType, eventCriticality, networkId,
+                              apiEndpoint, apiFunction, activityId, userIp, appServerIP, logStandard)
 
+        mock_open.assert_called_once()
+        actual_path = mock_open.call_args[0][0]
+        self.assertEqual(os.path.normpath(actual_path), os.path.normpath(expected_path))
+
+        handle = mock_open()
+        handle.write.assert_called_once()
+        written_log = handle.write.call_args[0][0]
+
+        self.assertIn('"LogStandard": "RFC5424"', written_log)
+        self.assertIn('"EventTime": "2021-12-05T08:33:53.165-05:00"', written_log)
+        self.assertIn('"LoginResult": "Logout"', written_log)
+        self.assertIn('"LogLevel": "ERROR"', written_log)
+        self.assertIn('"Username": "user456"', written_log)
+        self.assertIn('"AppURL": "http://example.com/api/logout"', written_log)
+        self.assertIn('"ActivityID": "activity456"', written_log)
+        self.assertIn('"SourceIP": "192.168.1.2"', written_log)
+        self.assertIn('"AppServerIP": "10.0.0.2"', written_log)
