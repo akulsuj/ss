@@ -90,7 +90,7 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y"), MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="Y")]
         mock_execute_view.return_value = pd.DataFrame()
         parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
         mock_execute_view.assert_called()
@@ -103,5 +103,12 @@ class TestParentParser(unittest.TestCase):
         from Services.parentparser import parentparser
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N"), MagicMock(settingName="Valid_Company", settingValue="test_company"), MagicMock(settingName="IncludePartType_Funds", settingValue="test_fund")]
-        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSAD
+        mock_globalvars.sadrd_settings = [MagicMock(settingName="IsRefreshUVAndVPA", settingValue="N")]
+        parentparser({"action1": ["file1.txt"]}, "/input/dir/", "generateSADRDReport", 2025)
+        mock_execute_view.assert_not_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad', side_effect=Exception("Test Exception"))
+    def test_parentparser_file_exception(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = Magic
