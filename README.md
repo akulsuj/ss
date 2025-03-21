@@ -5,11 +5,6 @@ import sys
 from io import StringIO
 import os
 
-# Add the directory containing SADRD_CLI.py to sys.path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from SADRD_CLI import process_input # Corrected import
-
 class TestSADRD_CLI(unittest.TestCase):
 
     def test_process_input_empty_string(self):
@@ -61,7 +56,7 @@ class TestSADRD_CLI(unittest.TestCase):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
         with patch('sys.stdin', StringIO('123')):
-            with patch('test.Services.SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
                 result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
                 self.assertIn("Error: Test Type Error", result.stdout)
                 self.assertEqual(result.returncode, 1)
@@ -70,7 +65,7 @@ class TestSADRD_CLI(unittest.TestCase):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
         with patch('sys.stdin', StringIO('123')):
-            with patch('test.Services.SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
                 result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
                 self.assertIn("An unexpected error occurred: Test General Exception", result.stdout)
                 self.assertEqual(result.returncode, 1)
