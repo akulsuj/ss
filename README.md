@@ -133,4 +133,4 @@ class TestParentParser(unittest.TestCase):
         result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
 
         self.assertEqual(result.status, "Success")
-        self.assertEqual(result.message, "QualPctFTC - Success Message
+        self.assertEqual(result.
