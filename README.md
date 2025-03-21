@@ -55,7 +55,7 @@ class TestParentParser(unittest.TestCase):
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
         mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sadrd_ErrMessages = []
+        mock_globalvars.sadrd_ErrMessages =
         mock_globalvars.filesLoadedCount = 1
         mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
         mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
@@ -87,7 +87,7 @@ class TestParentParser(unittest.TestCase):
             MagicMock(settingName='IncludePartType_Funds', settingValue='PartType1'),
             MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')
         ]
-        mock_globalvars.sadrd_ErrMessages = []
+        mock_globalvars.sadrd_ErrMessages =
         mock_globalvars.filesLoadedCount = 1
         mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
         mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
@@ -106,3 +106,74 @@ class TestParentParser(unittest.TestCase):
         self.assertEqual(result.status, "Success")
         self.assertEqual(result.message, "Annual Stmt - Sch D - Success Message")
         mock_sdp.parseAnnualStmntFile.assert_called()
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    def test_parentparser_qualpctftc_file_error(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
+        mock_globalvars.sadrd_ErrMessages =
+        mock_globalvars.filesLoadedCount = 1
+        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+        mock_globalvars.fileErrorMessages = "Error Message"
+
+        serverInputFilesByAction = {}
+        Inputdirpath = "/path/to/inputdir"
+        import_type = "QualPctFTC"
+        Year = 2025
+        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
+        mock_sdp.parseCusipQualFTCFile.return_value = None
+        mock_dbops_instance.BuildErrorMessage.return_value = "Error Message"
+        mock_dbops_instance.executeSADRD_SP.return_value = None
+
+        with self.assertRaises(CustomException.FileValidationException) as context:
+            parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
+        self.assertEqual(str(context.exception), "Error Message")
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    def test_parentparser_ftcgrossup_file_error(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
+        mock_globalvars.sadrd_ErrMessages =
+        mock_globalvars.filesLoadedCount = 1
+        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+        mock_globalvars.fileErrorMessages = "Error Message"
+
+        serverInputFilesByAction = {}
+        Inputdirpath = "/path/to/inputdir"
+        import_type = "FTCGrossup"
+        Year = 2025
+        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
+        mock_sdp.parseJHFundsFTCGrossupFile.return_value = None
+        mock_dbops_instance.BuildErrorMessage.return_value = "Error Message"
+        mock_dbops_instance.executeSADRD_SP.return_value = None
+
+        with self.assertRaises(CustomException.FileValidationException) as context:
+            parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
+        self.assertEqual(str(context.exception), "Error Message")
+
+    @patch('Services.parentparser.dbops.dboperations')
+    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
+    def test_parentparser_annual_stmt_sch_d_file_error(self, mock_download, mock_dbops_constructor):
+        from Services.parentparser import parentparser
+        mock_dbops_instance = MagicMock()
+        mock_dbops_constructor.return_value = mock_dbops_instance
+        mock_globalvars.sadrd_settings = [
+            MagicMock(settingName='Valid_Company', settingValue='Company1'),
+            MagicMock(settingName='IncludePartType_Funds', settingValue='PartType1'),
+            MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')
+        ]
+        mock_globalvars.sadrd_ErrMessages =
+        mock_globalvars.filesLoadedCount = 1
+        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+        mock_globalvars.fileErrorMessages = "Error Message"
+
+        serverInputFilesByAction
