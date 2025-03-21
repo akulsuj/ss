@@ -1,62 +1,76 @@
-pytest --cov . test/ --cov-report html
-================================================== test session starts ==================================================
-platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
-rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
-plugins: Flask-Dance-3.2.0, cov-4.0.0
-collected 86 items / 1 error
+import unittest
+from unittest.mock import patch
+import subprocess
+import sys
+from io import StringIO
+import os
 
-======================================================== ERRORS ========================================================= 
-___________________________________ ERROR collecting test/Services/test_SADRD_CLI.py ____________________________________ 
-ImportError while importing test module 'C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\Services\test_SADRD_CLI.py'.   
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-test\Services\test_SADRD_CLI.py:8: in <module>
-    from SADRD_CLI import process_input
-E   ImportError: cannot import name 'process_input' from 'SADRD_CLI' (C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\SADRD_CLI.py)
-=================================================== warnings summary ==================================================== 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _nlv = LooseVersion(_np_version)
+# Add the directory containing SADRD_CLI.py to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p17 = _nlv < LooseVersion("1.17")
+from SADRD_CLI import process_input
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p18 = _nlv < LooseVersion("1.18")
+class TestSADRD_CLI(unittest.TestCase):
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p19 = _nlv < LooseVersion("1.19")
+    def test_process_input_empty_string(self):
+        self.assertEqual(process_input(""), "")
 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p20 = _nlv < LooseVersion("1.20")
+    def test_process_input_lower_to_upper(self):
+        self.assertEqual(process_input("abc"), "ABC")
 
-venv\lib\site-packages\setuptools\_distutils\version.py:337
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    other = LooseVersion(other)
+    def test_process_input_upper_to_lower(self):
+        self.assertEqual(process_input("ABC"), "abc")
 
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
+    def test_process_input_numbers_doubled(self):
+        self.assertEqual(process_input("123"), "246")
 
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
-    from flask import _app_ctx_stack, abort, current_app, request
+    def test_process_input_mixed(self):
+        self.assertEqual(process_input("aBc12$"), "AbC24$")
 
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+    def test_process_input_special_characters(self):
+        self.assertEqual(process_input("!@#"), "!@#")
 
----------- coverage: platform win32, python 3.9.13-final-0 -----------
-Coverage HTML written to dir htmlcov
+    def test_process_input_type_error(self):
+        with self.assertRaises(TypeError):
+            process_input(123)
 
-================================================ short test summary info ================================================ 
-ERROR test/Services/test_SADRD_CLI.py
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-============================================= 10 warnings, 1 error in 4.78s =============================================
-PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
+    def test_main_with_argument(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
+        result = subprocess.run(["python", sadrd_cli_path, "abc"], capture_output=True, text=True)
+        self.assertEqual(result.stdout.strip(), "ABC")
+        self.assertEqual(result.returncode, 0)
+
+    def test_main_with_stdin(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
+        with patch('sys.stdin', StringIO('abc\n')):
+            result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
+            self.assertEqual(result.stdout.strip(), "ABC")
+            self.assertEqual(result.returncode, 0)
+
+    def test_main_no_argument_no_stdin_tty(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
+        with patch('sys.stdin.isatty', return_value=True):
+            result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
+            self.assertIn("Please provide an input string.", result.stdout)
+            self.assertEqual(result.returncode, 1)
+
+    def test_main_type_error_handling(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
+        with patch('sys.stdin', StringIO('123')):
+            with patch('SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+                result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
+                self.assertIn("Error: Test Type Error", result.stdout)
+                self.assertEqual(result.returncode, 1)
+
+    def test_main_general_exception_handling(self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sadrd_cli_path = os.path.join(current_dir, "SADRD_CLI.py")
+        with patch('sys.stdin', StringIO('123')):
+            with patch('SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+                result = subprocess.run(["python", sadrd_cli_path], capture_output=True, text=True)
+                self.assertIn("An unexpected error occurred: Test General Exception", result.stdout)
+                self.assertEqual(result.returncode, 1)
