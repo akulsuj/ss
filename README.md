@@ -1,130 +1,245 @@
-import unittest
-from unittest.mock import MagicMock, patch
-import sys
+import json
 import os
-from Services import CustomException
+import shutil
+from tkinter import FIRST, LAST
+from turtle import left
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'Services')))
+from sqlalchemy import true
+import globalvars as gvar
+import logging, urllib
+import datetime
+import pandas as pd
+from pathlib import Path
+from db import db
 
-mock_dbops = MagicMock(name='dboperations')
-mock_sdp = MagicMock(name='SADRD_Dataparser')
-mock_fiops = MagicMock(name='fileoperations')
-mock_globalvars = MagicMock(name='globalvars')
+from flask import Flask
+import Services.dboperations   as dbops
+from Entities.Customentities import ApihomeResp
 
-sys.modules['Services.dboperations'] = mock_dbops
-sys.modules['Services.SADRD_Dataparser'] = mock_sdp
-sys.modules['Services.fileoperations'] = mock_fiops
-sys.modules['globalvars'] = mock_globalvars
-sys.modules['Services.CustomException'] = CustomException
+cliapp = Flask(__name__)
+if cliapp.config["ENV"] == "production":
+    cliapp.config.from_object("config.ProductionConfig")
+elif cliapp.config["ENV"] == "testing":
+    cliapp.config.from_object("config.TestingConfig")
+elif cliapp.config["ENV"] == "development":    
+    cliapp.config.from_object("config.DevelopmentConfig")
+else:
+    cliapp.config.from_object("config.LocalConfig")
 
-class TestParentParser(unittest.TestCase):
+gvar.user_id = 'thulapr'
+settingsAddOrUpdate ='added'
+strMsg = 'Clicked on Settings tab in Admin page. Settings data [AddOrUpdate] successfully.'
+up = strMsg.replace('[AddOrUpdate]', settingsAddOrUpdate)
+up1 =settingsAddOrUpdate
 
-    def setUp(self):
-        mock_globalvars.fileErrorMessages = ""
-        mock_globalvars.filesLoadedCount = 0
-        mock_globalvars.user_id = 1
-        mock_globalvars.dataload_id = 1
-        mock_globalvars.gconfig = {
-            "DRIVER": "test_driver",
-            "SADRD_DATABASE_SERVER": "test_sadr_server",
-            "SADRD_DATABASE_NAME": "test_sadr_db",
-            "CONNECTION_AUTH_STRING": "test_auth",
-            "UV_DATABASE_SERVER": "test_uv_server",
-            "UV_DATABASE_NAME": "test_uv_db",
-            "UV_DATABASE_AUTH_STRING": "test_uv_auth",
-            "VPA_DATABASE_SERVER": "test_vpa_server",
-            "VPA_DATABASE_NAME": "test_vpa_db",
-            "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
-        }
-        mock_globalvars.sqlconfig = None
+cors = json.loads(cliapp.config["CORS_ORIGINS"])[cliapp.config["ENV"]]
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.shutil.move')
-    @patch('Services.parentparser.os.path.split')
-    def test_copyFileToOutputFolder_move(self, mock_split, mock_move, mock_dbops_constructor):
-        from Services.parentparser import copyFileToOutputFolder
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_split.return_value = ("/path/to", "file.txt")
-        mock_dbops_instance.SadrdSysSettings.return_value = [MagicMock(settingName='SADRD_Year', settingValue='2024')]
-        copyFileToOutputFolder("/input/dir/", "/input/dir/file.txt", "move")
-        mock_move.assert_called()
+gvar.gconfig = cliapp.config
+logging.basicConfig(level=cliapp.config["DEBUG"])
+gvar.init()
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
-    def test_parentparser_ftcgrossup(self, mock_download, mock_dbops_constructor):
-        from Services.parentparser import parentparser
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sadrd_ErrMessages = []
-        mock_globalvars.filesLoadedCount = 1
-        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
-        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+gvar.sqlconfig = urllib.parse.quote_plus("DRIVER="+gvar.gconfig["DRIVER"] + ";" + "SERVER=" + gvar.gconfig["SADRD_DATABASE_SERVER"] + ";" + "DATABASE=" + gvar.gconfig["SADRD_DATABASE_NAME"] + gvar.gconfig["CONNECTION_AUTH_STRING"])
+cliapp.config['SQLALCHEMY_DATABASE_URI'] = gvar.gconfig["SQLALCHEMYODBC"] % gvar.sqlconfig
+cliapp.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+cliapp.config['PROPAGATE_EXCEPTIONS'] = True
+with cliapp.app_context():
+    db.init_app(cliapp)
 
-        serverInputFilesByAction = {}
-        Inputdirpath = "/path/to/inputdir"
-        import_type = "FTCGrossup"
-        Year = 2025
-        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
-        mock_sdp.parseJHFundsFTCGrossupFile.return_value = None
-        mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
-        mock_dbops_instance.executeSADRD_SP.return_value = None
-        mock_dbops_instance.insert_actionLog.return_value = None
 
-        result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
 
-        self.assertEqual(result.status, "Success")
-        self.assertEqual(result.message, "FTCGrossup - Success Message")
-        mock_sdp.parseJHFundsFTCGrossupFile.assert_called()
+#gvar.sqlconfig = urllib.parse.quote_plus("DRIVER="+gvar.gconfig["DRIVER"] + ";"+"SERVER="+gvar.gconfig["SERVER"]+";"+"DATABASE="+gvar.gconfig["DATABASE"]+";"+"UID="+gvar.gconfig["UID"]+";"+"PWD="+gvar.gconfig["PWD"]+";")
+#gvar.sqlconfig = urllib.parse.quote_plus("DRIVER="+gvar.gconfig["DRIVER"] + ";"+"SERVER="+gvar.gconfig["VPA_DATABASE_SERVER"]+";"+"DATABASE="+gvar.gconfig["VPA_DATABASE_NAME"]+";"+"Encrypt=yes;TrustServerCertificate=no;Authentication=ActiveDirectoryIntegrated")
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
-    def test_parentparser_annual_stmt_sch_d(self, mock_download, mock_dbops_constructor):
-        from Services.parentparser import parentparser
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [
-            MagicMock(settingName='Valid_Company', settingValue='Company1'),
-            MagicMock(settingName='IncludePartType_Funds', settingValue='PartType1'),
-            MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')
-        ]
-        mock_globalvars.sadrd_ErrMessages = []
-        mock_globalvars.filesLoadedCount = 1
-        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
-        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+@cliapp.route('/cliapi', methods=['GET'])
+def cliapi():
 
-        serverInputFilesByAction = {}
-        Inputdirpath = "/path/to/inputdir"
-        import_type = "Annual Stmt - Sch D"
-        Year = 2025
-        mock_sdp.parseAnnualStmntFile.return_value = None
-        mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
-        mock_dbops_instance.executeSADRD_SP.return_value = None
-        mock_dbops_instance.insert_actionLog.return_value = None
+    try:
+     #print("Start time=" , datetime.now().strftime("%H:%M:%S"))
+     print("Start time=", datetime.datetime.now())
+     import Services.dboperations   as dbops
+     from Services.parentparser import parentparser
+    
+     '''
+        myfile = ("//mfcgd.com/aznadfs/US/JHFX01DEV02/develop/SADRD_InputFiles/testLoad/testload_secondValidation/testFilexls.xlsx", "r+")
+        if is_open(myfile[0]) == True:
+            openstatus =true
+        else:
+            openstatus =False
+        print(openstatus)
+     '''
+     #actionname = 'Annual Stmt - Sch D'
+     #actionname = 'ScheduleD'
+     actionname = 'generateSADRDReport'
+     #actionname = 'QualPctFTC'
+     #actionname = 'FTCGrossup'
+     serverInputFilesFolder = json.loads(cliapp.config["SADRD_SERVER_FOLDER"])
+     Year = '2022'
+     '''
+     dbops_obj = dbops.dboperations()
+     dbops_obj.UpdateUser("Prakash Thulabandala", "thulapr", 1, "Admin",
+                                                    "PTHULABANDALA_1@jhancock.com", "update")
+     
+     if actionname == 'FTCGrossup':
+        subFolder= "FTCGrossup"
+    '''
+     serverInputFilesByAction = Path.cwd().joinpath(str(serverInputFilesFolder['serverFolderPath']),"")
+     Inputdirpath = Path.cwd().joinpath('Data',actionname)
 
-        result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
 
-        self.assertEqual(result.status, "Success")
-        self.assertEqual(result.message, "Annual Stmt - Sch D - Success Message")
-        mock_sdp.parseAnnualStmntFile.assert_called()
+     '''
+     for (row, sadrdSysSetting) in enumerate(gvar.sadrd_settings):
+         if sadrdSysSetting.settingName == "SADRD_Year":
+              year = sadrdSysSetting.settingValue
+              break
 
-    @patch('Services.parentparser.dbops.dboperations')
-    @patch('Services.parentparser.fiops.DownloadServerFilesToLoad')
-    def test_parentparser_qualpctftc_file_error(self, mock_download, mock_dbops_constructor):
-        from Services.parentparser import parentparser
-        mock_dbops_instance = MagicMock()
-        mock_dbops_constructor.return_value = mock_dbops_instance
-        mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sadrd_ErrMessages = []
-        mock_globalvars.filesLoadedCount = 1
-        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
-        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+     importType = "generateSADRDReport"
+     
+     parentparser(str(serverInputFilesByAction), str(Inputdirpath), importType, year, 'No')
+    '''
 
-        serverInputFilesByAction = {}
-        Inputdirpath = "/path/to/inputdir"
-        import_type = "QualPctFTC"
-        Year = 2025
-        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
-        mock_sdp.parseCusipQualFTCFile.side_effect = CustomException.FileValidationException("Error Message")
-        mock_dbops_instance.BuildErrorMessage.return_value =
+
+
+
+     parentparser(str(serverInputFilesByAction), str(Inputdirpath),actionname, Year, 'Yes')
+     #parseCusipQualFTCFile('CusipQualFTC', '\\\\mfcgd.com\\aznadfs\\US\\JHFX01DEV02\\develop\\SADRD_InputFiles\\2020_RPS_SADRDCusips - JH 20221005.xlsx',  Year)
+     print("End time=", datetime.datetime.now())
+     gvar.apihome_Respobj.message="CLI action completed"
+     gvar.apiResp.setResponse(gvar.apihome_Respobj)
+    
+     return gvar.apiResp.getResponse()
+ 
+    except Exception as e:
+     dbops.logger.error('Parser failed ' + str(e))    
+
+if __name__ == '__main__':
+   cliapp.run()
+
+'''
+def is_open(file_name):
+    if os.path.exists(file_name):
+        try:
+            os.rename(file_name, file_name) #can't rename an open file so an error will be thrown
+            return False
+        except:
+            return True
+    raise NameError
+'''
+'''  
+def parseCusipQualFTCFile(actionname, inpfile, UIYear):
+    try:
+        response = ApihomeResp()
+        dbops_obj = dbops.dboperations()
+        datatb = pd.DataFrame()       
+        file_name = os.path.basename(inpfile)
+        file_name_1 = file_name.split(".")[0]
+
+        year = file_name_1.split("_")[0]
+    
+        listCompany =[]
+        for (row, sadrdSysSetting) in enumerate(gvar.sadrd_settings):
+            if sadrdSysSetting.settingName == "Valid_Company":
+                listCompany.append(sadrdSysSetting.settingValue)
+
+        if file_name_1 != None and "JHFunds" in file_name_1:
+            fileType = 'JHFunds'
+        elif file_name_1 != None and "RPS" in file_name_1:
+            fileType = 'RPS'
+
+        xl = pd.ExcelFile(inpfile)
+        datatb = pd.DataFrame()       
+        columns = None
+        for idx, sheetName in enumerate(xl.sheet_names):
+            #print(f'Reading sheet #{idx}: {name}')
+            if sheetName not in listCompany:
+                dbops.logger.error('The sheetname is not valid')
+                raise Exception('The sheetname is not valid')
+                exit()    
+            sheet = xl.parse(sheetName)
+            sheet = sheet.loc[:, ~sheet.columns.str.contains('Unnamed')]
+           
+            #datatb = datatb.append(sheet, ignore_index=True)
+            datatb = sheet
+            dbYear = datatb.Year.unique()
+            yearSize=0
+            yearSize = int(len(dbYear))
+
+            dfSetttings = pd.DataFrame(gvar.sadrd_settings)
+            #dfSetttings = pd.DataFrame(gvar.sadrd_settings, columns = ['settingName', 'settingValue']) 
+            #columns = ['settingName', 'settingValue']
+           
+
+
+            #df = pd.DataFrame(gvar.sadrd_settings, columns=columns)
+
+            #dfYear = df.loc[df['settingName'] == 'SADRD_Year']
+            
+            for (row, sadrdSysSetting) in enumerate(gvar.sadrd_settings):
+                if sadrdSysSetting.settingName == "SADRD_Year":
+                    sadrdYear = sadrdSysSetting.settingValue
+                    break
+                
+            if yearSize == 1:                
+                distYear = datatb.Year.unique()[0]
+                if int(distYear) != int(year):
+                    dbops.logger.error('The UI year does not match with year in file')
+                    raise Exception('The UI year does not match with year in file')
+                    exit()
+                if int(year) != int(sadrdYear):
+                    raise Exception('This in not a valid year with respect to year in sys_settings table')
+                    exit()
+            elif yearSize > 1: 
+                dbops.logger.error('The file data contains more than one year')
+                raise Exception('Contains more than one year')
+                exit()
+
+            dbCompany = datatb.Company.unique()
+            companySize=0
+            companySize = int(len(dbCompany))
+
+            if companySize == 1:
+                distCompany = datatb.Company.unique()[0]
+                if distCompany not in listCompany:
+                    raise Exception('This in not a valid company with respect to company in sys_settings table')
+                    exit()
+            elif companySize > 1: 
+                dbops.logger.error('The file data contains more than one company')
+                raise Exception('Contains more than one company')
+                exit()
+            
+            
+            loadkey_dict = dict(
+                    [('companyName', distCompany), ('year', str(distYear)), ('fileType',fileType)])
+
+            for index, (key, value) in enumerate(loadkey_dict.items()):
+                loadkey = value if index == 0 else loadkey + ";" + value
+            strJsonVal = json.dumps(loadkey_dict, indent=4)
+
+            
+            datatb = sheet.iloc[1:]
+            datatb.columns =['Year', 'Company', 'Cusip', 'CusipName', 'Bank', 'FTC', 'QualPct']
+            datatb = datatb
+            datatb.insert(7, 'Source', fileType)
+            datatb.insert(8, 'FileName', file_name)
+
+            datatb['Cusip'] = datatb['Cusip'].astype(str)
+            datatb['CusipName'] = datatb['CusipName'].astype(str)
+            datatb['Bank'] = datatb['Bank'].astype(str)
+            datatb['FTC'] = datatb['FTC'].fillna(0)
+            datatb['QualPct'] = datatb['QualPct'].fillna(0)
+            dbops_obj.insert_dataloadkey(loadkey, strJsonVal,  actionname, gvar.INPROGRESS, str(datetime.datetime.now().strftime('%Y-%m-%d'))[0:10], gvar.user_id)
+            dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, actionname, 'parseCusipQualFTCFile', str(datetime.datetime.now())[0:23], "insert_dataloadkey method executed", gvar.dataload_id)
+            
+            dbops_obj.loaddata('SADRD_SrcStaging_CusipQualFTC', datatb, '')
+            dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, actionname, 'parseCusipQualFTCFile', str(datetime.datetime.now())[0:23], "loaddata method executed for SADRD_SrcStaging_CusipQualFTC", gvar.dataload_id)
+        
+            dbops_obj.executeSADRD_SP('sp_SADRD_LoadCusipQualFTC')
+            dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, actionname, 'parseCusipQualFTCFile', str(datetime.datetime.now())[0:23], "executeSADRD_SP method executed for SP sp_SADRD_LoadCusipQualFTC", gvar.dataload_id)
+            
+            dbops_obj.executeSADRD_SP('sp_SADRD_UpdateCntrlTotals_CusipQualFTC')
+            dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, actionname, 'parseCusipQualFTCFile', str(datetime.datetime.now())[0:23], "executeSADRD_SP method executed for SP sp_SADRD_UpdateCntrlTotals_CusipQualFTC", gvar.dataload_id)
+        
+    except Exception as e:
+        dbops_obj.insert_actionLog(datetime.datetime.now().month, datetime.datetime.now().year, gvar.user_id, actionname, 'parseCusipQualFTCFile', str(datetime.datetime.now())[0:23], ("Exception occurred in parseCusipQualFTCFile - " + str(e)), None)
+        dbops.logger.error('Error in parsefile -' + str(e))
+        raise e
+'''
