@@ -130,4 +130,3 @@ class TestParentParser(unittest.TestCase):
         mock_sdp.parseCusipQualFTCFile.return_value = None
         mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
         mock_dbops_instance.executeSADRD_SP.return_value = None
-        mock_dbops_instance.insert_actionLog.return_value = None
