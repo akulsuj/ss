@@ -40,6 +40,7 @@ class TestParentParser(unittest.TestCase):
             "VPA_DATABASE_NAME": "test_vpa_db",
             "VPA_DATABASE_AUTH_STRING": "test_vpa_auth"
         }
+        mock_globalvars.sqlconfig = None
 
     @patch('Services.parentparser.dbops.dboperations')
     @patch('Services.parentparser.shutil.move')
@@ -114,4 +115,22 @@ class TestParentParser(unittest.TestCase):
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
         mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sad
+        mock_globalvars.sadrd_ErrMessages = []
+        mock_globalvars.filesLoadedCount = 1
+        mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
+
+        serverInputFilesByAction = {}
+        Inputdirpath = "/path/to/inputdir"
+        import_type = "QualPctFTC"
+        Year = 2025
+        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
+        mock_sdp.parseCusipQualFTCFile.return_value = None
+        mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
+        mock_dbops_instance.executeSADRD_SP.return_value = None
+        mock_dbops_instance.insert_actionLog.return_value = None
+
+        result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
+
+        self.assertEqual(result.status, "Success")
+        self.assertEqual(result.message, "QualPctFTC - Success Message
