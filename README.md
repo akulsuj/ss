@@ -1,51 +1,63 @@
-import argparse
+import unittest
+from unittest.mock import patch
+import subprocess
 import sys
+from io import StringIO
 
-def process_input(input_str):
-    """Processes the input string and returns a modified string."""
-    if not isinstance(input_str, str):
-        raise TypeError("Input must be a string.")
+class TestSADRD_CLI(unittest.TestCase):
 
-    if not input_str:
-        return ""
+    def test_process_input_empty_string(self):
+        self.assertEqual(process_input(""), "")
 
-    modified_str = ""
-    for char in input_str:
-        if 'a' <= char <= 'z':
-            modified_str += char.upper()
-        elif 'A' <= char <= 'Z':
-            modified_str += char.lower()
-        elif '0' <= char <= '9':
-            modified_str += str(int(char) * 2)
-        else:
-            modified_str += char
+    def test_process_input_lower_to_upper(self):
+        self.assertEqual(process_input("abc"), "ABC")
 
-    return modified_str
+    def test_process_input_upper_to_lower(self):
+        self.assertEqual(process_input("ABC"), "abc")
 
-def main():
-    """Main function to parse arguments and process input."""
-    parser = argparse.ArgumentParser(description="Process input string.")
-    parser.add_argument("input_string", nargs="?", default=None, help="Input string to process.")
-    args = parser.parse_args()
+    def test_process_input_numbers_doubled(self):
+        self.assertEqual(process_input("123"), "246")
 
-    if args.input_string is None:
-        if sys.stdin.isatty():
-            print("Please provide an input string.")
-            sys.exit(1)
-        else:
-            input_str = sys.stdin.read().strip()
-    else:
-        input_str = args.input_string
+    def test_process_input_mixed(self):
+        self.assertEqual(process_input("aBc12$"), "AbC24$")
 
-    try:
-        result = process_input(input_str)
-        print(result)
-    except TypeError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        sys.exit(1)
+    def test_process_input_special_characters(self):
+        self.assertEqual(process_input("!@#"), "!@#")
 
-if __name__ == "__main__":
-    main()
+    def test_process_input_type_error(self):
+        with self.assertRaises(TypeError):
+            process_input(123)
+
+    def test_main_with_argument(self):
+        result = subprocess.run(["python", "SADRD_CLI.py", "abc"], capture_output=True, text=True)
+        self.assertEqual(result.stdout.strip(), "ABC")
+        self.assertEqual(result.returncode, 0)
+
+    def test_main_with_stdin(self):
+        with patch('sys.stdin', StringIO('abc\n')):
+            result = subprocess.run(["python", "SADRD_CLI.py"], capture_output=True, text=True)
+            self.assertEqual(result.stdout.strip(), "ABC")
+            self.assertEqual(result.returncode, 0)
+
+    def test_main_no_argument_no_stdin_tty(self):
+        with patch('sys.stdin.isatty', return_value=True):
+            result = subprocess.run(["python", "SADRD_CLI.py"], capture_output=True, text=True)
+            self.assertIn("Please provide an input string.", result.stdout)
+            self.assertEqual(result.returncode, 1)
+
+    def test_main_type_error_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('__main__.process_input', side_effect=TypeError("Test Type Error")):
+                result = subprocess.run(["python", "SADRD_CLI.py"], capture_output=True, text=True)
+                self.assertIn("Error: Test Type Error", result.stdout)
+                self.assertEqual(result.returncode, 1)
+
+    def test_main_general_exception_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('__main__.process_input', side_effect=Exception("Test General Exception")):
+                result = subprocess.run(["python", "SADRD_CLI.py"], capture_output=True, text=True)
+                self.assertIn("An unexpected error occurred: Test General Exception", result.stdout)
+                self.assertEqual(result.returncode, 1)
+
+if __name__ == '__main__':
+    unittest.main(argv=['first-arg-is-ignored'], exit=False)
