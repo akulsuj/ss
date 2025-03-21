@@ -117,7 +117,7 @@ class TestParentParser(unittest.TestCase):
         mock_dbops_instance = MagicMock()
         mock_dbops_constructor.return_value = mock_dbops_instance
         mock_globalvars.sadrd_settings = [MagicMock(settingName='IsRefreshUVAndVPA', settingValue='N')]
-        mock_globalvars.sadrd_ErrMessages = [] # corrected line
+        mock_globalvars.sadrd_ErrMessages = []
         mock_globalvars.filesLoadedCount = 1
         mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
         mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
@@ -131,7 +131,3 @@ class TestParentParser(unittest.TestCase):
         mock_dbops_instance.BuildErrorMessage.return_value = "Success Message"
         mock_dbops_instance.executeSADRD_SP.return_value = None
         mock_dbops_instance.insert_actionLog.return_value = None
-
-        result = parentparser(serverInputFilesByAction, Inputdirpath, import_type, Year)
-
-        self.assertEqual(result.
