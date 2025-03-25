@@ -12,13 +12,8 @@ import logging
 class TestDbOperations(unittest.TestCase):
 
     @patch.object(dboperations, '__init__', return_value=None)
-    @patch('Services.dboperations.sqlalchemy.create_engine')
-    def setUp(self, mock_create_engine, mock_db_init):
-        self.mock_engine = MagicMock()
-        self.mock_connection = self.mock_engine.connect.return_value
+    def setUp(self, mock_db_init):
         self.db_ops = dboperations()
-        self.db_ops.engine = self.mock_engine
-        self.db_ops.connection = self.mock_connection
         self.mock_session = MagicMock()
         self.db_ops.session = self.mock_session
         self.db_ops.metadata = MagicMock()
@@ -61,10 +56,10 @@ class TestDbOperations(unittest.TestCase):
 
     def test_truncatetable(self):
         self.db_ops.truncatetable('test_table')
-        self.mock_connection.execution_options().execute.assert_called_once()
-        self.mock_connection.execution_options().execute.reset_mock()
+        self.mock_session.execute.assert_called_once()
+        self.mock_session.execute.reset_mock()
         self.db_ops.insert_actionLog = MagicMock()
-        self.mock_connection.execution_options().execute.side_effect = SQLAlchemyError('test')
+        self.mock_session.execute.side_effect = SQLAlchemyError('test')
         with self.assertRaises(SQLAlchemyError):
             self.db_ops.truncatetable('test_table')
 
