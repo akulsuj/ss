@@ -37,7 +37,7 @@ class TestDbOperations(unittest.TestCase):
     def test_truncatetable(self):
         self.db_ops.truncatetable('test_table')
         self.mock_connection.execution_options().execute.assert_called_once()
-        self.mock_connection.execution_options().execute.reset_mock()
+        self.mock_connection.execution_-        self.mock_connection.execution_options().execute.reset_mock()
         self.db_ops.truncatetable('SADRD_SrcStaging_SchDAllPartsdata', 'Yes')
         self.mock_connection.execution_options().execute.assert_called_once()
         self.mock_connection.execution_options().execute.reset_mock()
