@@ -1,3 +1,8 @@
+import importlib
+import test_SADRD_CLI
+
+importlib.reload(test_SADRD_CLI)  # Reload the module before any tests are run
+
 import unittest
 from unittest.mock import patch
 import sys
@@ -40,13 +45,18 @@ def main():
     else:
         input_str = args.input_string
 
+    print(f"Input string: {input_str}")  # Check the input
+
     try:
         result = process_input(input_str)
+        print(f"Result before exception: {result}") # Check the result before exception
         print(result)
     except TypeError as e:
+        print(f"TypeError caught: {e}")
         print(f"Error: {e}")
         sys.exit(1)
     except Exception as e:
+        print(f"Exception caught: {e}")
         print(f"An unexpected error occurred: {e}")
         sys.exit(1)
 
@@ -101,7 +111,8 @@ class TestSADRD_CLI(unittest.TestCase):
 
     def test_main_type_error_handling(self):
         with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('test_SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+                print("Patching process_input with TypeError")  # Check if patching is happening
                 with patch('sys.stdin', StringIO('123')):
                     with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                         with patch('sys.exit') as mock_exit:
@@ -111,10 +122,18 @@ class TestSADRD_CLI(unittest.TestCase):
 
     def test_main_general_exception_handling(self):
         with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('test_SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+                print("Patching process_input with Exception")  # Check if patching is happening
                 with patch('sys.stdin', StringIO('123')):
                     with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                         with patch('sys.exit') as mock_exit:
                             main()
                             self.assertIn("An unexpected error occurred: Test General Exception", mock_stdout.getvalue())
                             mock_exit.assert_called_once_with(1)
+
+# Add this at the end to print module locations
+import sys
+
+for name, module in sys.modules.items():
+    if "test_SADRD_CLI" in name:
+        print(f"Module: {name}, Location: {module.__file__}")
