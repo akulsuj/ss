@@ -101,7 +101,7 @@ class TestSADRD_CLI(unittest.TestCase):
 
     def test_main_type_error_handling(self):
         with patch('sys.stdin', StringIO('123')):
-            with patch('test.Services.SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+            with patch('SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
                 with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                     with patch('sys.exit') as mock_exit:
                         with patch('sys.argv', ['SADRD_CLI.py']):
@@ -111,7 +111,7 @@ class TestSADRD_CLI(unittest.TestCase):
 
     def test_main_general_exception_handling(self):
         with patch('sys.stdin', StringIO('123')):
-            with patch('test.Services.SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+            with patch('SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
                 with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
                     with patch('sys.exit') as mock_exit:
                         with patch('sys.argv', ['SADRD_CLI.py']):
