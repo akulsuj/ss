@@ -1,97 +1,94 @@
- pytest --cov . test/ --cov-report html
-================================================== test session starts ==================================================
-platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
-rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
-plugins: Flask-Dance-3.2.0, cov-4.0.0
-collected 85 items
+import unittest
+from unittest.mock import patch, MagicMock, call
+import pandas as pd
+from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
+from Services.dboperations import dboperations, TranInprogress
+import globalvars as gvar
+import urllib
+import Entities.dbormschemas as dbsch
 
-test\test_APIHome.py .........                                                                                     [ 10%]
-test\test_config.py .....................                                                                          [ 35%]
-test\test_db.py .                                                                                                  [ 36%] 
-test\test_globalvars.py .                                                                                          [ 37%]
-test\Entities\test_Customentities.py ....                                                                          [ 42%] 
-test\Entities\test_dbormschemas.py .........                                                                       [ 52%]
-test\Services\test_APIResponse.py .......                                                                          [ 61%]
-test\Services\test_Auth.py ........                                                                                [ 70%]
-test\Services\test_CustomException.py ..                                                                           [ 72%] 
-test\Services\test_SADRD_CLI.py .......                                                                            [ 81%]
-test\Services\test_dboperations.py .F.                                                                             [ 84%]
-test\Services\test_fileoperations.py .......                                                                       [ 92%]
-test\Services\test_logoperations.py ...                                                                            [ 96%]
-test\Services\test_parentparser.py ...                                                                             [100%]
+gvar = MagicMock()
+gvar.sqlconfig = MagicMock()
+gvar.gconfig = MagicMock()
+gvar.sadrd_ErrMessages = [MagicMock(MessageNumber='E019', Message='[YYYY]')]
+gvar.sadrd_settings = [MagicMock(settingName='test', settingValue='test')]
+gvar.scheduleEList = [MagicMock(Cusip='test', CusipName='test')]
+gvar.qualPctList = [MagicMock(Year=2023, Company='test', Cusip='test')]
+gvar.COMPLETED = 'completed'
+gvar.FAILED = 'failed'
+gvar.INPROGRESS = 'inprogress'
+gvar.user_id = 'test_user'
 
-======================================================= FAILURES ======================================================== 
-____________________________________________ TestDbOperations.test_loaddata _____________________________________________ 
+class TestDbOperations(unittest.TestCase):
 
-self = <test.Services.test_dboperations.TestDbOperations testMethod=test_loaddata>
-mock_to_sql = <MagicMock name='to_sql' id='2522968301424'>
+    @patch.object(dboperations, '__init__', return_value=None)
+    @patch('Services.dboperations.sqlalchemy.create_engine')
+    def setUp(self, mock_create_engine, mock_db_init):
+        self.mock_engine = MagicMock()
+        self.mock_connection = self.mock_engine.connect.return_value
+        self.db_ops = dboperations()
+        self.db_ops.engine = self.mock_engine
+        self.db_ops.connection = self.mock_connection
+        self.mock_session = MagicMock()
+        self.db_ops.session = self.mock_session
+        self.db_ops.metadata = MagicMock()
+
+    def test_truncatetable(self):
+        self.db_ops.truncatetable('test_table')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_SrcStaging_SchDAllPartsdata', 'Yes')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'nonQualFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'QualFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'FTCGrossup')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'GL')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'Sch D Part')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'QualPctFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'FTCGrossup')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.insert_actionLog = MagicMock()
+        self.mock_connection.execution_options().execute.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.truncatetable('test_table')
 
     @patch('Services.dboperations.pd.DataFrame.to_sql')
-    def test_loaddata(self, mock_to_sql):
+    @patch('Services.dboperations.pd.DataFrame')
+    def test_loaddata(self, mock_dataframe, mock_to_sql):
         df = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+        mock_dataframe.return_value = df
         self.db_ops.sysdlrec = MagicMock()
         self.db_ops.sysdlrec.dataload_key = 'test'
         self.db_ops.update_dataloadkey = MagicMock()
         self.db_ops.loaddata('SADRD_SrcStaging_SchDAllPartsdata', df)
         self.db_ops.loaddata('test_table', df)
->       mock_to_sql.assert_called()
+        mock_to_sql.assert_called()
 
-test\Services\test_dboperations.py:78:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-self = <MagicMock name='to_sql' id='2522968301424'>
-
-    def assert_called(self):
-        """assert that the mock was called at least once
-        """
-        if self.call_count == 0:
-            msg = ("Expected '%s' to have been called." %
-                   (self._mock_name or 'mock'))
->           raise AssertionError(msg)
-E           AssertionError: Expected 'to_sql' to have been called.
-
-C:\Program Files\Python39\lib\unittest\mock.py:876: AssertionError
-=================================================== warnings summary ==================================================== 
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _nlv = LooseVersion(_np_version)
-
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p17 = _nlv < LooseVersion("1.17")
-
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    np_version_under1p18 = _nlv < LooseVersion("1.18")
-
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p19 = _nlv < LooseVersion("1.19")
-
-venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    _np_version_under1p20 = _nlv < LooseVersion("1.20")
-
-venv\lib\site-packages\setuptools\_distutils\version.py:337
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    other = LooseVersion(other)
-
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-venv\lib\site-packages\pandas\compat\numpy\function.py:120
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
-    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
-
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
-  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
-    from flask import _app_ctx_stack, abort, current_app, request
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-
----------- coverage: platform win32, python 3.9.13-final-0 -----------
-Coverage HTML written to dir htmlcov
-
-================================================ short test summary info ================================================ 
-FAILED test/Services/test_dboperations.py::TestDbOperations::test_loaddata - AssertionError: Expected 'to_sql' to have been called.
-======================================= 1 failed, 84 passed, 10 warnings in 4.24s ======================================= 
-PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
+    def test_insert_dataloadkey(self):
+        self.mock_session.query().filter_by().first.return_value = None
+        gvar.gconfig.__getitem__.return_value = "%s"
+        self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.add.assert_called_once()
+        self.mock_session.commit.assert_called_once()
+        self.mock_session.query().filter_by().first.return_value = MagicMock(dataload_status = gvar.INPROGRESS)
+        self.db_ops.insert_actionLog = MagicMock()
+        with self.assertRaises(TranInprogress):
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.query().filter_by().first.return_value = None
+        self.mock_session.add.side_effect = SQLAlchemyError('test')
+        with self.assertRaises
