@@ -119,5 +119,6 @@ class TestDbOperations(unittest.TestCase):
     def test_executeNIR_SP(self, mock_read_sql):
         mock_read_sql.return_value = pd.DataFrame()
         self.db_ops.engine = MagicMock()
-        gvar.gconfig.__getitem__.side_effect = ['driver', 'server', 'database', 'auth', '%s']
-        self.db_ops.executeNIR_SP('sp_name', 2023, 'company')
+        gvar.gconfig.__getitem__.side_effect = {
+            "DRIVER": "test_driver",
+            "NIR
