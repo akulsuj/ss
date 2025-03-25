@@ -27,10 +27,10 @@ venv\lib\site-packages\_pytest\assertion\rewrite.py:337: in _rewrite_test
     tree = ast.parse(source, filename=strfn)
 C:\Program Files\Python39\lib\ast.py:50: in parse
     return compile(source, filename, mode, flags,
-E     File "C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\Services\test_dboperations.py", line 127
-E       @patch('Services.dboperations.pd.read_
-E                                             ^
-E   SyntaxError: EOL while scanning string literal
+E     File "C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\Services\test_dboperations.py", line 128
+E
+E       ^
+E   SyntaxError: unexpected EOF while parsing
 =================================================== warnings summary ==================================================== 
 venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
   C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
@@ -74,5 +74,5 @@ Coverage HTML written to dir htmlcov
 ================================================ short test summary info ================================================ 
 ERROR test/Services/test_dboperations.py
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
-============================================= 10 warnings, 1 error in 2.86s ============================================= 
+============================================= 10 warnings, 1 error in 5.02s ============================================= 
 PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
