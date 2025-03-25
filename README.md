@@ -11,7 +11,7 @@ import logging
 
 gvar = MagicMock()
 gvar.sqlconfig = MagicMock()
-gvar.gconfig = {"SQLALCHEMYODBC": "%s"} # Make gconfig a dict
+gvar.gconfig = MagicMock()
 gvar.sadrd_ErrMessages = [MagicMock(MessageNumber='E019', Message='[YYYY]')]
 gvar.sadrd_settings = [MagicMock(settingName='test', settingValue='test')]
 gvar.scheduleEList = [MagicMock(Cusip='test', CusipName='test')]
@@ -34,6 +34,7 @@ class TestDbOperations(unittest.TestCase):
         self.mock_session = MagicMock()
         self.db_ops.session = self.mock_session
         self.db_ops.metadata = MagicMock()
+        mock_create_engine.return_value = self.mock_engine # Patch create_engine
 
     def test_truncatetable(self):
         self.db_ops.truncatetable('test_table')
@@ -113,3 +114,7 @@ class TestDbOperations(unittest.TestCase):
         self.db_ops.engine = MagicMock()
         result = self.db_ops.executeSADRD_SP(['sp_name'])
         self.assertEqual(result, '')
+        self.db_ops.insert_actionLog = MagicMock()
+        self.mock_connection.cursor.return_value.execute.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.executeSADRD_SP(['sp_name'])
