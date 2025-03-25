@@ -46,19 +46,72 @@ class TestDbOperations(unittest.TestCase):
         gvar.user_id = 'test_user'
 
     def test_truncatetable(self):
-        # ... (rest of your test_truncatetable code)
+        self.db_ops.truncatetable('test_table')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_SrcStaging_SchDAllPartsdata', 'Yes')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'nonQualFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'QualFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'FTCGrossup')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_FactsTemp_CntrlTotals_Input', 'GL')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'Sch D Part')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'QualPctFTC')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.truncatetable('SADRD_Factstemp_Exception', 'FTCGrossup')
+        self.mock_connection.execution_options().execute.assert_called_once()
+        self.mock_connection.execution_options().execute.reset_mock()
+        self.db_ops.insert_actionLog = MagicMock()
+        self.mock_connection.execution_options().execute.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.truncatetable('test_table')
 
     def test_insert_dataloadkey(self):
-        # ... (rest of your test_insert_dataloadkey code)
+        self.mock_session.query().filter_by().first.return_value = None
+        self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.add.assert_called_once()
+        self.mock_session.commit.assert_called_once()
+        self.mock_session.query().filter_by().first.return_value = MagicMock(dataload_status = gvar.INPROGRESS)
+        self.db_ops.insert_actionLog = MagicMock()
+        with self.assertRaises(TranInprogress):
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.query().filter_by().first.return_value = None
+        self.mock_session.add.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
 
     def test_get_dataloadkey(self):
-        # ... (rest of your test_get_dataloadkey code)
+        self.db_ops.get_dataloadkey('loadkey')
+        self.mock_session.query().filter_by().first.assert_called_once()
+        self.mock_session.query().filter_by().first.side_effect = SQLAlchemyError('test')
+        self.db_ops.insert_actionLog = MagicMock()
+        self.db_ops.get_dataloadkey('loadkey')
 
     def test_update_dataloadkey(self):
-        # ... (rest of your test_update_dataloadkey code)
+        self.db_ops.sysdlrec = MagicMock()
+        self.db_ops.update_dataloadkey('status', 'details')
+        self.mock_session.commit.assert_called_once()
+        self.mock_session.commit.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.update_dataloadkey('status', 'details')
 
     def test_executeSADRD_SP(self):
-        # ... (rest of your test_executeSADRD_SP code)
+        self.db_ops.engine = MagicMock()
+        with patch.object(self.db_ops.connection.cursor(), 'execute', side_effect=SQLAlchemyError('test')):
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.executeSADRD_SP(['sp_name'])
 
     @patch('Services.dboperations.pd.read_sql')
     @patch('Services.dboperations.urllib.parse.quote_plus')
