@@ -113,4 +113,3 @@ class TestDbOperations(unittest.TestCase):
         self.db_ops.engine = MagicMock()
         result = self.db_ops.executeSADRD_SP(['sp_name'])
         self.assertEqual(result, '')
-        self.
