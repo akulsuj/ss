@@ -111,9 +111,4 @@ class TestAPIHome(unittest.TestCase):
     @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(return_value=[MagicMock(settingName='ServerFolderPath', settingValue='test_server_folder')]))
     @patch('Services.logoperations.insertServerEventLog', MagicMock())
     def test_import_data_failure(self):
-        response = self.client.post('/api/ImportData', data={'year': '2023', 'importType': 'test'})
-        self.assertEqual(response.json, {'status': 'Failure', 'message': 'test message'})
-
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.parentparser.parentparser', MagicMock(side_effect=Exception('test')))
-    @patch('Services.dboperations.dboperations.
+        response =
