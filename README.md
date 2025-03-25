@@ -7,6 +7,7 @@ from Services.dboperations import dboperations, TranInprogress
 import globalvars as gvar
 import urllib
 import Entities.dbormschemas as dbsch
+import logging
 
 gvar = MagicMock()
 gvar.sqlconfig = MagicMock()
@@ -66,3 +67,64 @@ class TestDbOperations(unittest.TestCase):
         self.mock_connection.execution_options().execute.side_effect = SQLAlchemyError('test')
         with self.assertRaises(SQLAlchemyError):
             self.db_ops.truncatetable('test_table')
+
+    @patch('Services.dboperations.pd.DataFrame.to_sql')
+    @patch('Services.dboperations.pd.DataFrame')
+    def test_loaddata(self, mock_dataframe, mock_to_sql):
+        df = pd.DataFrame({'col1': [1, 2], 'col2': [3, 4]})
+        mock_dataframe.return_value = df
+        self.db_ops.sysdlrec = MagicMock()
+        self.db_ops.sysdlrec.dataload_key = 'test'
+        self.db_ops.update_dataloadkey = MagicMock()
+        self.db_ops.loaddata('SADRD_SrcStaging_SchDAllPartsdata', df)
+        self.db_ops.loaddata('test_table', df)
+        mock_to_sql.assert_called()
+
+    def test_insert_dataloadkey(self):
+        self.mock_session.query().filter_by().first.return_value = None
+        gvar.gconfig.__getitem__.return_value = "%s"
+        self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.add.assert_called_once()
+        self.mock_session.commit.assert_called_once()
+        self.mock_session.query().filter_by().first.return_value = MagicMock(dataload_status = gvar.INPROGRESS)
+        self.db_ops.insert_actionLog = MagicMock()
+        with self.assertRaises(TranInprogress):
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+        self.mock_session.query().filter_by().first.return_value = None
+        self.mock_session.add.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+
+    def test_get_dataloadkey(self):
+        self.db_ops.get_dataloadkey('loadkey')
+        self.mock_session.query().filter_by().first.assert_called_once()
+        self.mock_session.query().filter_by().first.side_effect = SQLAlchemyError('test')
+        self.db_ops.insert_actionLog = MagicMock()
+        self.db_ops.get_dataloadkey('loadkey')
+
+    def test_update_dataloadkey(self):
+        self.db_ops.sysdlrec = MagicMock()
+        self.db_ops.update_dataloadkey('status', 'details')
+        self.mock_session.commit.assert_called_once()
+        self.mock_session.commit.side_effect = SQLAlchemyError('test')
+        with self.assertRaises(SQLAlchemyError):
+            self.db_ops.update_dataloadkey('status', 'details')
+
+    def test_executeSADRD_SP(self):
+        self.db_ops.engine = MagicMock()
+        with patch.object(self.db_ops.connection.cursor(), 'execute', side_effect=SQLAlchemyError('test')):
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.executeSADRD_SP(['sp_name'])
+
+    @patch('Services.dboperations.pd.read_sql')
+    def test_executeNIR_SP(self, mock_read_sql):
+        mock_read_sql.return_value = pd.DataFrame()
+        self.db_ops.engine = MagicMock()
+        gvar.gconfig.__getitem__.side_effect = {
+            "DRIVER": "test_driver",
+            "NIR_DATABASE_SERVER": "test_server",
+            "NIR_DATABASE_NAME": "test_db",
+            "NIR_DATABASE_AUTH_STRING": "test_auth",
+            "SQLALCHEMYODBC": "%s"
+        }
+        self.db_ops.executeNIR_SP('sp_name', 2023, 'company')
