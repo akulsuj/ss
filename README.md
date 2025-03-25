@@ -77,7 +77,7 @@ class TestDbOperations(unittest.TestCase):
         self.db_ops.loaddata('test_table', df)
         mock_to_sql.assert_called()
         self.db_ops.loaddata('SADRD_SrcStaging_CusipQualFTC', df)
-        self.db_ops.loaddata('SADRD_SrcStaging_BankGrossUpPct', df)
+        self.db_ops.loadddata('SADRD_SrcStaging_BankGrossUpPct', df)
         self.db_ops.loaddata('SADRD_FactsTemp_CntrlTotals_Input', df)
         self.mock_connection.execution_options().execute.side_effect = SQLAlchemyError('test')
         self.db_ops.insert_actionLog = MagicMock()
@@ -120,8 +120,4 @@ class TestDbOperations(unittest.TestCase):
         result = self.db_ops.executeSADRD_SP(['sp_name'])
         self.assertEqual(result, '')
         self.db_ops.insert_actionLog = MagicMock()
-        self.mock_connection.cursor.return_value.execute.side_effect = SQLAlchemyError('test')
-        with self.assertRaises(SQLAlchemyError):
-            self.db_ops.executeSADRD_SP(['sp_name'])
-
-    @patch('Services.dboperations.pd.read_
+        self.mock_connection.cursor.return_
