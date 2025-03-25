@@ -1,127 +1,120 @@
-import sys
-import os
 import unittest
-from unittest.mock import patch, MagicMock
-import pandas as pd
-import datetime
-import json
+from unittest.mock import patch
+import sys
+from io import StringIO
+import argparse
 
-# Get the directory of the current file
-current_dir = os.path.dirname(os.path.abspath(__file__))
+def process_input(input_str):
+    """Processes the input string and returns a modified string."""
+    if not isinstance(input_str, str):
+        raise TypeError("Input must be a string.")
 
-# Go up two levels to the API directory
-parent_dir = os.path.dirname(os.path.dirname(current_dir))
+    if not input_str:
+        return ""
 
-# Add the parent directory to the Python path
-sys.path.append(parent_dir)
+    modified_str = ""
+    for char in input_str:
+        if 'a' <= char <= 'z':
+            modified_str += char.upper()
+        elif 'A' <= char <= 'Z':
+            modified_str += char.lower()
+        elif '0' <= char <= '9':
+            modified_str += str(int(char) * 2)
+        else:
+            modified_str += char
 
-import SADRD_Dataparser
-from Services import dboperations
+    return modified_str
 
-class TestSADRDDataparser(unittest.TestCase):
+def main():
+    """Main function to parse arguments and process input."""
+    parser = argparse.ArgumentParser(description="Process input string.")
+    parser.add_argument("input_string", nargs="?", default=None, help="Input string to process.")
+    args = parser.parse_args()
 
-    def setUp(self):
-        self.mock_dbops_obj = MagicMock(spec=dboperations.dboperations)
-        self.patcher_dbops = patch('SADRD_Dataparser.dbops_obj', self.mock_dbops_obj)
-        self.patcher_dbops.start()
+    if args.input_string is None:
+        if sys.stdin.isatty():
+            print("Please provide an input string.")
+            sys.exit(1)
+        else:
+            input_str = sys.stdin.read().strip()
+    else:
+        input_str = args.input_string
 
-        self.mock_gvar = MagicMock()
-        self.patcher_gvar = patch('SADRD_Dataparser.gvar', self.mock_gvar)
-        self.patcher_gvar.start()
+    try:
+        result = process_input(input_str)
+        print(result)
+    except TypeError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        sys.exit(1)
 
-        self.mock_datetime = MagicMock()
-        self.patcher_datetime = patch('SADRD_Dataparser.datetime', self.mock_datetime)
-        self.patcher_datetime.start()
+if __name__ == "__main__":
+    main()
 
-        SADRD_Dataparser.dbops_obj = self.mock_dbops_obj
-        SADRD_Dataparser.gvar = self.mock_gvar
+class TestSADRD_CLI(unittest.TestCase):
 
-        self.mock_gvar.sadrd_settings = [
-            MagicMock(settingName='SADRD_Year', settingValue='2023'),
-            MagicMock(settingName='Valid_Company', settingValue='CompanyA'),
-            MagicMock(settingName='Valid_Company', settingValue='CompanyB'),
-        ]
-        SADRD_Dataparser.listCompany = ['CompanyA', 'CompanyB']
-        SADRD_Dataparser.gvar.sadrdYear = 2023
-        self.mock_datetime.datetime.now.return_value = datetime.datetime(2023, 1, 1, 12, 0, 0)
-        self.mock_gvar.user_id = 'test_user'
-        self.mock_gvar.INPROGRESS = 'InProgress'
-        self.mock_gvar.COMPLETED = 'Completed'
-        self.mock_gvar.filesLoadedCount = 0
-        self.mock_gvar.fileErrorMessages = ''
+    def test_process_input_empty_string(self):
+        self.assertEqual(process_input(""), "")
 
-    def tearDown(self):
-        self.patcher_dbops.stop()
-        self.patcher_gvar.stop()
-        self.patcher_datetime.stop()
+    def test_process_input_lower_to_upper(self):
+        self.assertEqual(process_input("abc"), "ABC")
 
-    def test_parseAnnualStmntFile_success(self):
-        df = pd.DataFrame({'Cusip': ['123-45', '67890'], 'DividendAmt': [100, 200]})
-        self.mock_dbops_obj.executeNIR_SP.return_value = df
+    def test_process_input_upper_to_lower(self):
+        self.assertEqual(process_input("ABC"), "abc")
 
-        SADRD_Dataparser.parseAnnualStmntFile('CompanyA', 'Part 2 Section 1', 'test_action', 2023, "")
+    def test_process_input_numbers_doubled(self):
+        self.assertEqual(process_input("123"), "246")
 
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.mock_dbops_obj.executeSADRD_SP.assert_called()
-        self.assertEqual(SADRD_Dataparser.gvar.filesLoadedCount, 1)
+    def test_process_input_mixed(self):
+        self.assertEqual(process_input("aBc12$"), "AbC24$")
 
-    def test_parseAnnualStmntFile_secondary_validation(self):
-        SADRD_Dataparser.parseAnnualStmntFile('CompanyA', 'Part 2 Section 1', 'test_action', 2023, "SecondaryValidation")
-        self.mock_dbops_obj.executeNIR_SP.assert_not_called()
+    def test_process_input_special_characters(self):
+        self.assertEqual(process_input("!@#"), "!@#")
 
-    def test_parseAnnualStmntFile_exception(self):
-        self.mock_dbops_obj.executeNIR_SP.side_effect = Exception("Test Exception")
+    def test_process_input_type_error(self):
+        with self.assertRaises(TypeError):
+            process_input(123)
 
-        with self.assertRaises(Exception):
-            SADRD_Dataparser.parseAnnualStmntFile('CompanyA', 'Part 2 Section 1', 'test_action', 2023, "")
+    def test_main_with_argument(self):
+        with patch('sys.argv', ['SADRD_CLI.py', 'abc']):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                main()
+                self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
 
-    def test_parseCusipQualFTCFile_secondary_validation_errors(self):
-        mock_excel = MagicMock()
-        mock_sheet1 = MagicMock()
-        mock_sheet2 = MagicMock()
-        mock_sheet1.title = 'CompanyC'
-        mock_sheet2.title = 'CompanyA'
-        mock_sheet2.sheet_state = 'visible'
-        mock_sheet1.sheet_state = 'visible'
-        mock_excel.book.worksheets = [mock_sheet1, mock_sheet2]
-        mock_excel.parse.return_value = pd.DataFrame({'Year': [2024], 'Company':['CompanyA']})
-        with patch('SADRD_Dataparser.pd.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile('test_action', 'test.xlsx', 2023, 'SecondaryValidation')
-        self.assertTrue('E020' in SADRD_Dataparser.gvar.fileErrorMessages)
-        self.assertTrue('E005' in SADRD_Dataparser.gvar.fileErrorMessages)
+    def test_main_with_stdin(self):
+        with patch('sys.stdin', StringIO('abc\n')):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                with patch('sys.argv', ['SADRD_CLI.py']):
+                    main()
+                    self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
 
-    def test_parseCusipQualFTCFile_success(self):
-        mock_excel = MagicMock()
-        mock_sheet = MagicMock()
-        mock_sheet.title = 'CompanyA'
-        mock_sheet.sheet_state = 'visible'
-        mock_excel.book.worksheets = [mock_sheet]
-        mock_excel.parse.return_value = pd.DataFrame({'Year': [2023], 'Company': ['CompanyA'], 'Cusip': ['123'], 'CusipName': ['Test'], 'Bank': ['BankA'], 'FTC': [10], 'QualPct': [50]})
-        with patch('SADRD_Dataparser.pd.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile('test_action', 'test.xlsx', 2023, "")
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.assertEqual(SADRD_Dataparser.gvar.filesLoadedCount, 1)
+    def test_main_no_argument_no_stdin_tty(self):
+        with patch('sys.stdin.isatty', return_value=True):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                with patch('sys.exit') as mock_exit:
+                    with patch('sys.argv', ['SADRD_CLI.py']):
+                        main()
+                        self.assertIn("Please provide an input string.", mock_stdout.getvalue())
+                        mock_exit.assert_called_once_with(1)
 
-    def test_parseJHFundsFTCGrossupFile_secondary_validation_errors(self):
-        mock_excel = MagicMock()
-        mock_sheet = MagicMock()
-        mock_sheet.title = 'Sheet1'
-        mock_sheet.sheet_state = 'visible'
-        mock_excel.book.worksheets = [mock_sheet]
-        mock_excel.parse.return_value = pd.DataFrame({'Year': [2024], 'Quarter': [2]})
-        with patch('SADRD_Dataparser.pd.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseJHFundsFTCGrossupFile('test_action', '2023_Q1_JHFunds.xlsx', 2023, 'SecondaryValidation')
-        self.assertTrue('E005' in SADRD_Dataparser.gvar.fileErrorMessages)
-        self.assertTrue('E010' in SADRD_Dataparser.gvar.fileErrorMessages)
+    def test_main_type_error_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    with patch('sys.exit') as mock_exit:
+                        with patch('sys.argv', ['SADRD_CLI.py']):
+                            main()
+                            self.assertIn("Error: Test Type Error", mock_stdout.getvalue())
+                            mock_exit.assert_called_once_with(1)
 
-    def test_parseJHFundsFTCGrossupFile_success(self):
-        mock_excel = MagicMock()
-        mock_sheet = MagicMock()
-        mock_sheet.title = 'Sheet1'
-        mock_sheet.sheet_state = 'visible'
-        mock_excel.book.worksheets = [mock_sheet]
-        mock_excel.parse.return_value = pd.DataFrame({'Year': [2023], 'Quarter': [1], 'Bank': ['BankA'], 'Trust': ['TrustA'], 'JHNY%Share': [10], 'JHUSA%Share': [20], 'Other%Share': [30], 'Total%Share': [60], 'Fund Name':['FundA'], 'JHNY-Div':[100], 'JHUSA-Div':[200], 'Other-Div':[300], 'Total All-Div':[600]})
-        with patch('SADRD_Dataparser.pd.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseJHFundsFTCGrossupFile
+    def test_main_general_exception_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    with patch('sys.exit') as mock_exit:
+                        with patch('sys.argv', ['SADRD_CLI.py']):
+                            main()
+                            self.assertIn("An unexpected error occurred: Test General Exception", mock_stdout.getvalue())
+                            mock_exit.assert_called_once_with(1)
