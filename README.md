@@ -77,3 +77,41 @@ class TestSADRD_CLI(unittest.TestCase):
     def test_process_input_type_error(self):
         with self.assertRaises(TypeError):
             process_input(123)
+
+    def test_main_with_argument(self):
+        with patch('sys.argv', ['SADRD_CLI.py', 'abc']):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                main()
+                self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
+
+    def test_main_with_stdin(self):
+        with patch('sys.stdin', StringIO('abc\n')):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                main()
+                self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
+
+    def test_main_no_argument_no_stdin_tty(self):
+        with patch('sys.stdin.isatty', return_value=True):
+            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                with patch('sys.exit') as mock_exit:
+                    main()
+                    self.assertIn("Please provide an input string.", mock_stdout.getvalue())
+                    mock_exit.assert_called_once_with(1)
+
+    def test_main_type_error_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('__main__.process_input', side_effect=TypeError("Test Type Error")):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    with patch('sys.exit') as mock_exit:
+                        main()
+                        self.assertIn("Error: Test Type Error", mock_stdout.getvalue())
+                        mock_exit.assert_called_once_with(1)
+
+    def test_main_general_exception_handling(self):
+        with patch('sys.stdin', StringIO('123')):
+            with patch('__main__.process_input', side_effect=Exception("Test General Exception")):
+                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
+                    with patch('sys.exit') as mock_exit:
+                        main()
+                        self.assertIn("An unexpected error occurred: Test General Exception", mock_stdout.getvalue())
+                        mock_exit.assert_called_once_with(1)
