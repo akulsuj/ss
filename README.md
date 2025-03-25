@@ -1,119 +1,78 @@
-import unittest
-from unittest.mock import patch, MagicMock
-from flask import Flask, request
-from io import BytesIO
-import json
-import datetime
-from pathlib import Path
-import urllib
-import pandas as pd
+pytest --cov . test/ --cov-report html
+================================================== test session starts ==================================================
+platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
+rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
+plugins: Flask-Dance-3.2.0, cov-4.0.0
+collected 74 items / 1 error
 
-import APIHome
-import globalvars as gvar
-from db import db
-import Services.dboperations as dbops
-import Services.Auth as auth
-from Entities.Customentities import ApihomeResp
+======================================================== ERRORS ========================================================= 
+_________________________________________ ERROR collecting test/test_APIHome.py _________________________________________ 
+venv\lib\site-packages\_pytest\python.py:618: in _importtestmodule
+    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)
+venv\lib\site-packages\_pytest\pathlib.py:533: in import_path
+    importlib.import_module(module_name)
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+<frozen importlib._bootstrap>:1030: in _gcd_import
+    ???
+<frozen importlib._bootstrap>:1007: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:986: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:680: in _load_unlocked
+    ???
+venv\lib\site-packages\_pytest\assertion\rewrite.py:159: in exec_module
+    source_stat, co = _rewrite_test(fn, self.config)
+venv\lib\site-packages\_pytest\assertion\rewrite.py:337: in _rewrite_test
+    tree = ast.parse(source, filename=strfn)
+C:\Program Files\Python39\lib\ast.py:50: in parse
+    return compile(source, filename, mode, flags,
+E     File "C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\test_APIHome.py", line 119
+E       @patch('Services.dboperations.dboperations.
+E                                                  ^
+E   SyntaxError: EOL while scanning string literal
+=================================================== warnings summary ==================================================== 
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
 
-class TestAPIHome(unittest.TestCase):
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    np_version_under1p17 = _nlv < LooseVersion("1.17")
 
-    def setUp(self):
-        self.app = APIHome.mainapp
-        self.client = self.app.test_client()
-        self.app.config['TESTING'] = True
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        self.app.config['PROPAGATE_EXCEPTIONS'] = True
-        self.app.config['CORS_ORIGINS'] = '{"test": ["*"]}'
-        self.app.config['LOGLEVEL'] = 'DEBUG'
-        self.app.config['SADRD_SERVER_FOLDER'] = '{"serverFolderPath": "test_server_folder"}'
-        self.app.config['SERVER_LOGFILES_FOLDER'] = 'test_logs'
-        self.app.config['API_ENDPOINT'] = '/api'
-        self.app.config['APP_SERVER_IP_ADDRESS'] = '127.0.0.1'
-        self.app.config['DRIVER'] = '{ODBC Driver 17 for SQL Server}'
-        self.app.config['SADRD_DATABASE_SERVER'] = 'test_server'
-        self.app.config['SADRD_DATABASE_NAME'] = 'test_db'
-        self.app.config['CONNECTION_AUTH_STRING'] = ';Trusted_Connection=yes;'
-        self.app.config['SQLALCHEMYODBC'] = 'mssql+pyodbc:///?odbc_connect=%s'
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    np_version_under1p18 = _nlv < LooseVersion("1.18")
 
-        with self.app.app_context():
-            db.init_app(self.app)
-            db.create_all()
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
 
-        gvar.init()
-        gvar.gconfig = self.app.config
-        gvar.sqlconfig = urllib.parse.quote_plus("DRIVER="+gvar.gconfig["DRIVER"] + ";" + "SERVER=" + gvar.gconfig["SADRD_DATABASE_SERVER"] + ";" + "DATABASE=" + gvar.gconfig["SADRD_DATABASE_NAME"] + gvar.gconfig["CONNECTION_AUTH_STRING"])
-        self.dbops_obj = dbops.dboperations()
-        gvar.sadrdUsersList = self.dbops_obj.GetAllUsers()
-        gvar.sadrd_ErrMessages = self.dbops_obj.SADRD_Sys_Message()
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
 
-    def tearDown(self):
-        with self.app.app_context():
-            db.session.remove()
-            db.drop_all()
+venv\lib\site-packages\setuptools\_distutils\version.py:337
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
 
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.Auth.GetLoggedInUser', MagicMock(return_value='testuser'))
-    @patch('Services.dboperations.dboperations.GetAllUsers', MagicMock(return_value=[MagicMock(NetworkId='testuser', Name='Test User', RoleId=1, isActive=True, Email='test@example.com')]))
-    @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(return_value=[MagicMock(settingName='test', settingValue='test')]))
-    @patch('APIHome.GetAllRoles', MagicMock(return_value=MagicMock(json={'RolesData': [{'RoleID': 1, 'Type': 'Admin'}]})))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_authenticate_user_success(self):
-        response = APIHome.AuthenticateUser()
-        self.assertEqual(response, {'authenticated': True, 'NetworkId': 'testuser', 'Name': 'Test User', 'RoleId': 1, 'IsActive': True, 'Email': 'test@example.com', 'Role': 'Admin'})
+venv\lib\site-packages\pandas\compat\numpy\function.py:120
+venv\lib\site-packages\pandas\compat\numpy\function.py:120
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
 
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.Auth.GetLoggedInUser', MagicMock(return_value='testuser'))
-    @patch('Services.dboperations.dboperations.GetAllUsers', MagicMock(return_value=[]))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_authenticate_user_no_users(self):
-        response = APIHome.AuthenticateUser()
-        self.assertEqual(response, {'authenticated': False})
+venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
+venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
+    from flask import _app_ctx_stack, abort, current_app, request
 
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.Auth.GetLoggedInUser', MagicMock(return_value='testuser'))
-    @patch('Services.dboperations.dboperations.GetAllUsers', MagicMock(return_value=[MagicMock(NetworkId='testuser2', Name='Test User', RoleId=1, isActive=True, Email='test@example.com')]))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_authenticate_user_no_match(self):
-        response = APIHome.AuthenticateUser()
-        self.assertEqual(response, {'authenticated': False})
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.Auth.GetLoggedInUser', MagicMock(return_value='testuser'))
-    @patch('Services.dboperations.dboperations.GetAllUsers', MagicMock(side_effect=Exception('test')))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_authenticate_user_exception(self):
-        response = APIHome.AuthenticateUser()
-        self.assertEqual(response, None)
+---------- coverage: platform win32, python 3.9.13-final-0 -----------
+Coverage HTML written to dir htmlcov
 
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(return_value=[MagicMock(settingName='ImportType', settingValue='test', Description='test desc')]))
-    def test_get_import_types(self):
-        response = self.client.get('/api/GetImportTypes')
-        self.assertEqual(response.json, {'ImportTypesData': [{'ImportId': 1, 'ImportType': 'test', 'Description': 'test desc'}]})
-
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(side_effect=Exception('test')))
-    def test_get_import_types_exception(self):
-        response = self.client.get('/api/GetImportTypes')
-        self.assertEqual(response.json, {'ImportTypesData': []})
-
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.parentparser.parentparser', MagicMock(return_value=ApihomeResp(status='Success', message='test message')))
-    @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(return_value=[MagicMock(settingName='ServerFolderPath', settingValue='test_server_folder')]))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_import_data_success(self):
-        response = self.client.post('/api/ImportData', data={'year': '2023', 'importType': 'test'})
-        self.assertEqual(response.json, {'status': 'Success', 'message': 'test message'})
-
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.parentparser.parentparser', MagicMock(return_value=ApihomeResp(status='Failure', message='test message')))
-    @patch('Services.dboperations.dboperations.SadrdSysSettings', MagicMock(return_value=[MagicMock(settingName='ServerFolderPath', settingValue='test_server_folder')]))
-    @patch('Services.logoperations.insertServerEventLog', MagicMock())
-    def test_import_data_failure(self):
-        response = self.client.post('/api/ImportData', data={'year': '2023', 'importType': 'test'})
-        self.assertEqual(response.json, {'status': 'Failure', 'message': 'test message'})
-
-    @patch('Services.Auth.token_required', MagicMock(side_effect=lambda f: f))
-    @patch('Services.parentparser.parentparser', MagicMock(side_effect=Exception('test')))
-    @patch('Services.dboperations.dboperations.
+================================================ short test summary info ================================================ 
+ERROR test/test_APIHome.py
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+============================================= 10 warnings, 1 error in 2.71s ============================================= 
+PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
