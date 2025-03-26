@@ -1,139 +1,112 @@
-import importlib
-import test_SADRD_CLI
-
-importlib.reload(test_SADRD_CLI)  # Reload the module before any tests are run
-
 import unittest
-from unittest.mock import patch
-import sys
-from io import StringIO
-import argparse
+from unittest.mock import patch, MagicMock, call
+import pandas as pd
+from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime
+from Services.dboperations import dboperations, TranInprogress
+import globalvars as gvar
+import urllib
+import Entities.dbormschemas as dbsch
+import logging
 
-def process_input(input_str):
-    """Processes the input string and returns a modified string."""
-    if not isinstance(input_str, str):
-        raise TypeError("Input must be a string.")
+class TestDbOperations(unittest.TestCase):
 
-    if not input_str:
-        return ""
+    @patch.object(dboperations, '__init__', return_value=None)
+    def setUp(self, mock_db_init):
+        self.db_ops = dboperations()
+        self.mock_session = MagicMock()
+        self.db_ops.session = self.mock_session
+        self.db_ops.metadata = MagicMock()
 
-    modified_str = ""
-    for char in input_str:
-        if 'a' <= char <= 'z':
-            modified_str += char.upper()
-        elif 'A' <= char <= 'Z':
-            modified_str += char.lower()
-        elif '0' <= char <= '9':
-            modified_str += str(int(char) * 2)
-        else:
-            modified_str += char
+        # Replace with your actual DSN
+        nir_dsn = "your_nir_dsn"  # Replace with your NIR DSN
+        sadrd_dsn = "your_sadrd_dsn" # Replace with your SADRD DSN
 
-    return modified_str
+        # Construct a valid URL string using the DSN
+        nir_url = f"mssql+pyodbc://{nir_dsn}"
+        sadrd_url = f"mssql+pyodbc://{sadrd_dsn}"
 
-def main():
-    """Main function to parse arguments and process input."""
-    parser = argparse.ArgumentParser(description="Process input string.")
-    parser.add_argument("input_string", nargs="?", default=None, help="Input string to process.")
-    args = parser.parse_args()
+        # Mock gvar.gconfig as a dictionary with specific return values for keys
+        gvar.gconfig = MagicMock()
+        gvar.gconfig.__getitem__.side_effect = lambda key: {
+            "DRIVER": "{test_driver}",
+            "NIR_DATABASE_SERVER": "test_server",
+            "NIR_DATABASE_NAME": "test_db",
+            "NIR_DATABASE_AUTH_STRING": "test_auth",
+            "SQLALCHEMYODBC": "mssql+pyodbc:///?odbc_connect=%s",
+            "SADRD_DATABASE_SERVER": "sadrd_server",
+            "SADRD_DATABASE_NAME": "sadrd_db",
+            "CONNECTION_AUTH_STRING": "sadrd_auth"
+        }[key]
 
-    if args.input_string is None:
-        if sys.stdin.isatty():
-            print("Please provide an input string.")
-            sys.exit(1)
-        else:
-            input_str = sys.stdin.read().strip()
-    else:
-        input_str = args.input_string
+        # Mock urllib.parse.quote_plus to return the valid url
+        gvar.sqlconfig = MagicMock()
+        gvar.sqlconfig.return_value = nir_url
+        self.nir_url = nir_url
+        self.sadrd_url = sadrd_url
 
-    print(f"Input string: {input_str}")  # Check the input
+        gvar.sadrd_ErrMessages = [MagicMock(MessageNumber='E019', Message='[YYYY]')]
+        gvar.sadrd_settings = [MagicMock(settingName='test', settingValue='test')]
+        gvar.scheduleEList = [MagicMock(Cusip='test', CusipName='test')]
+        gvar.qualPctList = [MagicMock(Year=2023, Company='test', Cusip='test')]
+        gvar.COMPLETED = 'completed'
+        gvar.FAILED = 'failed'
+        gvar.INPROGRESS = 'inprogress'
+        gvar.user_id = 'test_user'
 
-    try:
-        result = process_input(input_str)
-        print(f"Result before exception: {result}") # Check the result before exception
-        print(result)
-    except TypeError as e:
-        print(f"TypeError caught: {e}")
-        print(f"Error: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Exception caught: {e}")
-        print(f"An unexpected error occurred: {e}")
-        sys.exit(1)
+    def test_truncatetable(self):
+        with patch.object(self.db_ops.session, 'execute') as mock_execute:
+            self.db_ops.truncatetable('test_table')
+            mock_execute.assert_called_once()
+            mock_execute.reset_mock()
+            self.db_ops.insert_actionLog = MagicMock()
+            mock_execute.side_effect = SQLAlchemyError('test')
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.truncatetable('test_table')
 
-if __name__ == "__main__":
-    main()
+    def test_insert_dataloadkey(self):
+        with patch.object(self.db_ops.session, 'query') as mock_query, \
+             patch.object(self.db_ops.session, 'add') as mock_add, \
+             patch.object(self.db_ops.session, 'commit') as mock_commit:
+            mock_query.return_value.filter_by.return_value.first.return_value = None
+            self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+            mock_add.assert_called_once()
+            mock_commit.assert_called_once()
+            mock_query.return_value.filter_by.return_value.first.return_value = MagicMock(dataload_status = gvar.INPROGRESS)
+            self.db_ops.insert_actionLog = MagicMock()
+            with self.assertRaises(TranInprogress):
+                self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
+            mock_query.return_value.filter_by.return_value.first.return_value = None
+            mock_add.side_effect = SQLAlchemyError('test')
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.insert_dataloadkey('loadkey', '{}', 'src')
 
-class TestSADRD_CLI(unittest.TestCase):
+    def test_get_dataloadkey(self):
+        with patch.object(self.db_ops.session, 'query') as mock_query:
+            self.db_ops.get_dataloadkey('loadkey')
+            mock_query.return_value.filter_by.return_value.first.assert_called_once()
+            mock_query.return_value.filter_by.return_value.first.side_effect = SQLAlchemyError('test')
+            self.db_ops.insert_actionLog = MagicMock()
+            self.db_ops.get_dataloadkey('loadkey')
 
-    def test_process_input_empty_string(self):
-        self.assertEqual(process_input(""), "")
+    def test_update_dataloadkey(self):
+        with patch.object(self.db_ops.session, 'commit') as mock_commit:
+            self.db_ops.sysdlrec = MagicMock()
+            self.db_ops.update_dataloadkey('status', 'details')
+            mock_commit.assert_called_once()
+            mock_commit.side_effect = SQLAlchemyError('test')
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.update_dataloadkey('status', 'details')
 
-    def test_process_input_lower_to_upper(self):
-        self.assertEqual(process_input("abc"), "ABC")
+    def test_executeSADRD_SP(self):
+        with patch.object(self.db_ops.connection.cursor(), 'execute', side_effect=SQLAlchemyError('test')):
+            with self.assertRaises(SQLAlchemyError):
+                self.db_ops.executeSADRD_SP(['sp_name'])
 
-    def test_process_input_upper_to_lower(self):
-        self.assertEqual(process_input("ABC"), "abc")
-
-    def test_process_input_numbers_doubled(self):
-        self.assertEqual(process_input("123"), "246")
-
-    def test_process_input_mixed(self):
-        self.assertEqual(process_input("aBc12$"), "AbC24$")
-
-    def test_process_input_special_characters(self):
-        self.assertEqual(process_input("!@#"), "!@#")
-
-    def test_process_input_type_error(self):
-        with self.assertRaises(TypeError):
-            process_input(123)
-
-    def test_main_with_argument(self):
-        with patch('sys.argv', ['SADRD_CLI.py', 'abc']):
-            with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                main()
-                self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
-
-    def test_main_with_stdin(self):
-        with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('sys.stdin', StringIO('abc\n')):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    main()
-                    self.assertEqual(mock_stdout.getvalue().strip(), "ABC")
-
-    def test_main_no_argument_no_stdin_tty(self):
-        with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('sys.stdin.isatty', return_value=True):
-                with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                    with patch('sys.exit') as mock_exit:
-                        main()
-                        self.assertIn("Please provide an input string.", mock_stdout.getvalue())
-                        mock_exit.assert_called_once_with(1)
-
-    def test_main_type_error_handling(self):
-        with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=TypeError("Test Type Error")):
-                print("Patching process_input with TypeError")  # Check if patching is happening
-                with patch('sys.stdin', StringIO('123')):
-                    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                        with patch('sys.exit') as mock_exit:
-                            main()
-                            self.assertIn("Error: Test Type Error", mock_stdout.getvalue())
-                            mock_exit.assert_called_once_with(1)
-
-    def test_main_general_exception_handling(self):
-        with patch('sys.argv', ['SADRD_CLI.py']):
-            with patch('test.Services.test_SADRD_CLI.process_input', side_effect=Exception("Test General Exception")):
-                print("Patching process_input with Exception")  # Check if patching is happening
-                with patch('sys.stdin', StringIO('123')):
-                    with patch('sys.stdout', new_callable=StringIO) as mock_stdout:
-                        with patch('sys.exit') as mock_exit:
-                            main()
-                            self.assertIn("An unexpected error occurred: Test General Exception", mock_stdout.getvalue())
-                            mock_exit.assert_called_once_with(1)
-
-# Add this at the end to print module locations
-import sys
-
-for name, module in sys.modules.items():
-    if "test_SADRD_CLI" in name:
-        print(f"Module: {name}, Location: {module.__file__}")
+    @patch('Services.dboperations.pd.read_sql')
+    @patch('Services.dboperations.urllib.parse.quote_plus')
+    def test_executeNIR_SP(self, mock_quote_plus, mock_read_sql):
+        mock_read_sql.return_value = pd.DataFrame()
+        mock_quote_plus.return_value = self.nir_url
+        self.db_ops.engine = MagicMock()
+        self.db_ops.executeNIR_SP('sp_name', 2023, 'company')
