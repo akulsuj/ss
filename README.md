@@ -29,6 +29,7 @@ class Test_Auth(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json, {'message': 'Success'})
             self.assertTrue(gvar.ISAUTHORIZED)
+            mock_insert_actionLog.assert_not_called()
 
     @patch('Services.Auth.DecryptToken')
     @patch('Services.Auth.GetLoggedInUser')
@@ -86,3 +87,6 @@ class Test_Auth(unittest.TestCase):
 
         with self.app.test_request_context(headers={'Authorization': 'Bearer invalid_token'}):
             response = test_route()
+            self.assertEqual(response[1], 494)
+            self.assertEqual(response[0].json, {'apirespmsg': 'Invalid Token!'})
+            mock_insert_actionLog.assert_called_once()
