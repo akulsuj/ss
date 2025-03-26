@@ -119,16 +119,4 @@ class TestParentParser(unittest.TestCase):
         mock_globalvars.sadrd_ErrMessages = []
         mock_globalvars.filesLoadedCount = 1
         mock_dbops_instance.SadrdSysSettings.return_value = mock_globalvars.sadrd_settings
-        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_globalvars.sadrd_ErrMessages
-
-        serverInputFilesByAction = {}
-        Inputdirpath = "/path/to/inputdir"
-        import_type = "QualPctFTC"
-        Year = 2025
-        mock_download.return_value = ["/path/to/inputdir/file1.txt"]
-        mock_sdp.parseCusipQualFTCFile.side_effect = CustomException.FileValidationException("Error Message")
-        mock_dbops_instance.BuildErrorMessage.return_value = "Error Message"
-        mock_dbops_instance.executeSADRD_SP.return_value = None
-
-        with self.assertRaises(CustomException.FileValidationException) as context:
-            parentparser(serverInputFilesByAction
+        mock_dbops_instance.SADRD_Sys_Message.return_value = mock_
