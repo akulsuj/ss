@@ -146,4 +146,4 @@ class APITestCase(unittest.TestCase):
             self.assertIn('QualPctData', json.loads(response.data))
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(
