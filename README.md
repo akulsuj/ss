@@ -1,129 +1,88 @@
 import unittest
-from unittest.mock import patch, MagicMock
-from flask import json
-from APIHome import mainapp
-import Services.Auth as auth
-import Services.dboperations as dbops
-from flask import jsonify
-import logging
+import pandas as pd
+import numpy as np
+import io
+from SADRD_Dataparser import SADRD_Dataparser
 
-class TestAPIHome(unittest.TestCase):
+class TestSADRD_Dataparser(unittest.TestCase):
 
-    def setUp(self):
-        self.app = mainapp.test_client()
-        self.app.testing = True
+    def test_basic_parsing(self):
+        data = "col1,col2\n1,2\n3,4"
+        parser = SADRD_Dataparser()
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2, 2))
+        self.assertEqual(df.iloc[0, 0], 1)
+        self.assertEqual(df.iloc[1, 1], 4)
 
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.GetAllUsers')
-    @patch('Services.dboperations.dboperations.SadrdSysSettings')
-    def test_authenticate_user_success(self, mock_sadrd_sys_settings, mock_get_all_users, mock_token_required):
-        mock_token_required.return_value = True
-        mock_get_all_users.return_value = [MagicMock(NetworkId='123', RoleId='1', Name='Test User', isActive=True, Email='test@example.com')]
-        mock_sadrd_sys_settings.return_value = []
+    def test_different_delimiter(self):
+        data = "col1|col2\n1|2\n3|4"
+        parser = SADRD_Dataparser(delimiter='|')
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2, 2))
+        self.assertEqual(df.iloc[0, 0], 1)
 
-        response = self.app.get('/api/AuthenticateUser', headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('authenticated', json.loads(response.data))
+    def test_skiprows(self):
+        data = "skip\ncol1,col2\n1,2\n3,4"
+        parser = SADRD_Dataparser(skiprows=1)
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2, 2))
+        self.assertEqual(df.iloc[0, 0], 1)
 
-    @patch('Services.Auth.token_required')
-    def test_authenticate_user_no_token(self, mock_token_required):
-        mock_token_required.return_value = True
-        response = self.app.get('/api/AuthenticateUser')
-        self.assertEqual(response.status_code, 404)
+    def test_header_custom(self):
+        data = "1,2\n3,4\n5,6"
+        parser = SADRD_Dataparser(header=None)
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (3, 2))
+        self.assertEqual(df.columns.tolist(), [0, 1])
+        self.assertEqual(df.iloc[0, 0], 1)
 
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.GetAllUsers')
-    def test_authenticate_user_invalid_token(self, mock_get_all_users, mock_token_required):
-        mock_token_required.return_value = True
-        mock_get_all_users.return_value = []
+    def test_na_values(self):
+        data = "col1,col2\n1,NA\n3,4"
+        parser = SADRD_Dataparser(na_values=['NA'])
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertTrue(pd.isna(df.iloc[0, 1]))
 
-        response = self.app.get('/api/AuthenticateUser', headers={'Authorization': 'Bearer invalid_token'})
-        self.assertEqual(response.status_code, 404)
+    def test_dtype(self):
+        data = "col1,col2\n1,2.0\n3,4.0"
+        parser = SADRD_Dataparser(dtype={'col1': int, 'col2': float})
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df['col1'].dtype, np.int64)
+        self.assertEqual(df['col2'].dtype, np.float64)
 
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.SadrdSysSettings')
-    def test_get_import_types(self, mock_sadrd_sys_settings, mock_token_required):
-        mock_token_required.return_value = True
-        mock_sadrd_sys_settings.return_value = [MagicMock(settingName='ImportType', settingValue='Type1', Description='Description1')]
+    def test_file_like_object(self):
+        data = "col1,col2\n1,2\n3,4"
+        file_like = io.StringIO(data)
+        parser = SADRD_Dataparser()
+        df = parser.parse_data(file_like)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2, 2))
 
-        response = self.app.get('/api/GetImportTypes', headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('ImportTypesData', json.loads(response.data))
+    def test_parsing_error(self):
+        data = "col1,col2\n1,2\n3,4,5"  # Invalid CSV
+        parser = SADRD_Dataparser()
+        df = parser.parse_data(data)
+        self.assertTrue(df is None)
 
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.SadrdSysSettings')
-    @patch('Services.parentparser')
-    def test_import_data_success(self, mock_parser, mock_sadrd_sys_settings, mock_token_required):
-        mock_token_required.return_value = True
-        mock_sadrd_sys_settings.return_value = [MagicMock(settingName='ServerFolderPath', settingValue='/path/to/server')]
-        mock_parser.return_value = MagicMock(status='Success', message='Import successful')
+    def test_skiprows_list(self):
+        data = "skip1\nskip2\ncol1,col2\n1,2\n3,4"
+        parser = SADRD_Dataparser(skiprows=[0,1])
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2, 2))
 
-        response = self.app.post('/api/ImportData', data={'year': '2023', 'importType': 'Type1'}, headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('status', json.loads(response.data))
+    def test_header_list(self):
+        data = "h1,h2\n1,2\n3,4\nh3,h4\n5,6"
+        parser = SADRD_Dataparser(header=[0,2])
+        df = parser.parse_data(data)
+        self.assertTrue(df is not None)
+        self.assertEqual(df.shape, (2,2))
+        self.assertEqual(df.columns.tolist(), ['h1', 'h2'])
 
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.SadrdSysSettings')
-    @patch('Services.parentparser')
-    def test_import_data_failure(self, mock_parser, mock_sadrd_sys_settings, mock_token_required):
-        mock_token_required.return_value = True
-        mock_sadrd_sys_settings.return_value = [MagicMock(settingName='ServerFolderPath', settingValue='/path/to/server')]
-        mock_parser.return_value = MagicMock(status='Failure', message='Import failed')
-
-        response = self.app.post('/api/ImportData', data={'year': '2023', 'importType': 'Type1'}, headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('status', json.loads(response.data))
-        self.assertEqual(json.loads(response.data)['status'], 'Failure')
-
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.get_actionLog')
-    def test_get_action_logs(self, mock_get_action_log, mock_token_required):
-        mock_token_required.return_value = True
-        mock_get_action_log.return_value = [MagicMock(LogID=1, Month=1, Year=2023, UserID='123', Module='Test', Action='Test Action', ActionDate='2023-01-01', Comments='Test Comment', Dataload_Id='1')]
-
-        response = self.app.get('/api/GetActionLogs', headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('ActionLogsData', json.loads(response.data))
-
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.UpdateUser')
-    def test_update_user_success(self, mock_update_user, mock_token_required):
-        mock_token_required.return_value = True
-        mock_update_user.return_value = 'Success'
-
-        response = self.app.post('/api/UpdateUser', data={'Name': 'Test User', 'userAction': 'add'}, headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('status', json.loads(response.data))
-
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.UpdateUser')
-    def test_update_user_failure(self, mock_update_user, mock_token_required):
-        mock_token_required.return_value = True
-        mock_update_user.return_value = 'Exists'
-
-        response = self.app.post('/api/UpdateUser', data={'Name': 'Test User', 'userAction': 'add'}, headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('status', json.loads(response.data))
-        self.assertEqual(json.loads(response.data)['status'], 'Exists')
-
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.SadrdSysSettings')
-    def test_get_settings_data(self, mock_sadrd_sys_settings, mock_token_required):
-        mock_token_required.return_value = True
-        mock_sadrd_sys_settings.return_value = [MagicMock(settingName='Setting1', settingValue='Value1', ShowInUI=True, Description='Description1', DataType='String')]
-
-        response = self.app.get('/api/GetSettingsData', headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('SettingsData', json.loads(response.data))
-
-    @patch('Services.Auth.token_required')
-    @patch('Services.dboperations.dboperations.UpdateSettingsData')
-    def test_update_settings_data(self, mock_update_settings_data, mock_token_required):
-        mock_token_required.return_value = True
-        mock_update_settings_data.return_value = 'Success'
-
-        response = self.app.post('/api/UpdateSettingsData', data={'settingName': 'Setting1', 'settingValue': 'NewValue', 'userAction': 'update'}, headers={'Authorization': 'Bearer valid_token'})
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('status', json.loads(response.data))
-
-    @patch('Services.Auth.token_required')
+if __name__ == '__main__':
+    unittest.main(argv=['first-arg-is-ignored'], exit=False)
