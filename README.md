@@ -1,1 +1,1 @@
-python -c "import SADRD_Dataparser; print('Found!')"
+PYTHONPATH=. pytest --cov . test/ --cov-report html
