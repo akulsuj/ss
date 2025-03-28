@@ -1,128 +1,62 @@
-import unittest
-from unittest.mock import patch, Mock, MagicMock
-import pandas as pd
-import datetime
-import json
-import os
-import logging
+pytest --cov . test/ --cov-report html
+===================================================== test session starts =====================================================
+platform win32 -- Python 3.9.13, pytest-7.2.0, pluggy-1.5.0
+rootdir: C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API
+plugins: Flask-Dance-3.2.0, cov-4.0.0
+collected 76 items / 1 error
 
-import SADRD_Dataparser  # Assuming SADRD_Dataparser.py is in the same directory
+=========================================================== ERRORS ============================================================ 
+_______________________________________ ERROR collecting test/test_SADRD_Dataparser.py ________________________________________ 
+ImportError while importing test module 'C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\test\test_SADRD_Dataparser.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Program Files\Python39\lib\importlib\__init__.py:127: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+test\test_SADRD_Dataparser.py:9: in <module>
+    import SADRD_Dataparser  # Assuming SADRD_Dataparser.py is in the same directory
+E   ModuleNotFoundError: No module named 'SADRD_Dataparser'
+====================================================== warnings summary ======================================================= 
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:10
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:10: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _nlv = LooseVersion(_np_version)
 
-class TestSADRDDataparser(unittest.TestCase):
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:11
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    np_version_under1p17 = _nlv < LooseVersion("1.17")
 
-    def setUp(self):
-        # Mocking dbops_obj and gvar for each test
-        self.mock_dbops_obj = Mock()
-        self.mock_gvar = Mock()
-        SADRD_Dataparser.dbops_obj = self.mock_dbops_obj
-        SADRD_Dataparser.gvar = self.mock_gvar
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:12
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:12: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    np_version_under1p18 = _nlv < LooseVersion("1.18")
 
-        # Mocking global variables
-        self.mock_gvar.sadrd_settings = [Mock(settingName="SADRD_Year", settingValue="2023"),
-                                         Mock(settingName="Valid_Company", settingValue="CompanyA"),
-                                         Mock(settingName="Valid_Company", settingValue="CompanyB")]
-        self.mock_gvar.sadrdYear = 2023
-        self.mock_gvar.user_id = "test_user"
-        self.mock_gvar.dataload_id = 123
-        self.mock_gvar.INPROGRESS = "INPROGRESS"
-        self.mock_gvar.COMPLETED = "COMPLETED"
-        self.mock_gvar.filesLoadedCount = 0
-        self.mock_gvar.fileErrorMessages = ""
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:13
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:13: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p19 = _nlv < LooseVersion("1.19")
 
-        # Mocking datetime
-        self.mock_datetime = Mock()
-        self.mock_datetime.datetime.now.return_value = datetime.datetime(2023, 10, 26, 12, 0, 0)
-        SADRD_Dataparser.datetime = self.mock_datetime
-        SADRD_Dataparser.logging = Mock()
+venv\lib\site-packages\pandas\compat\numpy\__init__.py:14
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\__init__.py:14: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    _np_version_under1p20 = _nlv < LooseVersion("1.20")
 
-    def test_parseAnnualStmntFile_success(self):
-        # Mocking dbops_obj.executeNIR_SP
-        mock_data = {'Cusip': ['123-45', '678-90'], 'DividendAmt': [100, 200]}
-        mock_df = pd.DataFrame(mock_data)
-        self.mock_dbops_obj.executeNIR_SP.return_value = mock_df
+venv\lib\site-packages\setuptools\_distutils\version.py:337
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\setuptools\_distutils\version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    other = LooseVersion(other)
 
-        SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "")
+venv\lib\site-packages\pandas\compat\numpy\function.py:120
+venv\lib\site-packages\pandas\compat\numpy\function.py:120
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\pandas\compat\numpy\function.py:120: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(__version__) >= LooseVersion("1.17.0"):
 
-        self.mock_dbops_obj.executeNIR_SP.assert_called_once()
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.mock_dbops_obj.executeSADRD_SP.assert_called()
-        self.assertEqual(self.mock_gvar.filesLoadedCount, 1)
+venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
+venv\lib\site-packages\flask_sqlalchemy\__init__.py:14
+  C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API\venv\lib\site-packages\flask_sqlalchemy\__init__.py:14: DeprecationWarning: '_app_ctx_stack' is deprecated and will be removed in Flask 2.3.
+    from flask import _app_ctx_stack, abort, current_app, request
 
-    def test_parseAnnualStmntFile_secondary_validation(self):
-        SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "SecondaryValidation")
-        self.mock_dbops_obj.executeNIR_SP.assert_not_called()
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 
-    def test_parseAnnualStmntFile_exception(self):
-        self.mock_dbops_obj.executeNIR_SP.side_effect = Exception("Test Exception")
-        with self.assertRaises(Exception):
-            SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "")
+---------- coverage: platform win32, python 3.9.13-final-0 -----------
+Coverage HTML written to dir htmlcov
 
-    def test_parseCusipQualFTCFile_secondary_validation_errors(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "InvalidCompany"
-        mock_sheet1.sheet_state = "visible"
-        mock_excel.book.worksheets = [mock_sheet1]
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E020" in self.mock_gvar.fileErrorMessages)
-
-    def test_parseCusipQualFTCFile_secondary_validation_year_error(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "CompanyA"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2022], 'Company': ['CompanyA']})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E005" in self.mock_gvar.fileErrorMessages)
-
-    def test_parseCusipQualFTCFile_success(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "CompanyA"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2023], 'Company': ['CompanyA'], 'Cusip': ['123'], 'CusipName': ['TestCusip'], 'Bank': ['TestBank'], 'FTC': [100], 'QualPct': [50]})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "")
-
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.assertEqual(self.mock_gvar.filesLoadedCount, 1)
-
-    def test_parseCusipQualFTCFile_exception(self):
-        with patch('pandas.ExcelFile', side_effect=Exception("Test Exception")):
-            with self.assertRaises(Exception):
-                SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "")
-
-    def test_parseJHFundsFTCGrossupFile_secondary_validation_year_error(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "Sheet1"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2022], 'Quarter': [3]})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseJHFundsFTCGrossupFile("test_action", "2023_Q3_JHFunds.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E005" in self.mock_gvar.fileErrorMessages)
-
-    def test_parseJHFundsFTCGrossupFile_success(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "Sheet1"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2023], 'Quarter': [3], 'Bank': ['TestBank'], 'Trust': ['TestTrust'], 'JHNY%Share': [10], 'JHUSA%Share': [20], 'Other%Share': [30], 'Total%Share': [60], 'Fund Name': ['TestFund'], 'JHNY-Div': [100], 'JHUSA-Div': [200], 'Other-Div': [300], 'Total All-Div': [600]})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser
+=================================================== short test summary info =================================================== 
+ERROR test/test_SADRD_Dataparser.py
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+================================================ 10 warnings, 1 error in 4.32s ================================================ 
+PS C:\Sujith\Projects\SADRD\FinanceIT_SADRD\API> 
