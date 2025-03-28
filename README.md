@@ -1,130 +1,297 @@
 import unittest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import MagicMock, patch, call
 import pandas as pd
 import datetime
-import json
 import os
-import logging
-import sys
-
-# Add the parent directory to sys.path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
-import SADRD_Dataparser
+import json
+from SADRD_Dataparser import (
+    parseAnnualStmntFile,
+    parseCusipQualFTCFile,
+    parseJHFundsFTCGrossupFile,
+    executeView_GetDetails,
+    Load_FundCusipDetails,
+    LoadVPADataToSADRD
+)
+import globalvars as gvar
+from Services import dboperations as dbops
 
 class TestSADRDDataparser(unittest.TestCase):
-
+    
     def setUp(self):
-        # Mocking dbops_obj and gvar for each test
-        self.mock_dbops_obj = Mock()
-        self.mock_gvar = Mock()
-        SADRD_Dataparser.dbops_obj = self.mock_dbops_obj
-        SADRD_Dataparser.gvar = self.mock_gvar
-
-        # Mocking global variables
-        self.mock_gvar.sadrd_settings = [Mock(settingName="SADRD_Year", settingValue="2023"),
-                                         Mock(settingName="Valid_Company", settingValue="CompanyA"),
-                                         Mock(settingName="Valid_Company", settingValue="CompanyB")]
-        self.mock_gvar.sadrdYear = 2023
-        self.mock_gvar.user_id = "test_user"
-        self.mock_gvar.dataload_id = 123
-        self.mock_gvar.INPROGRESS = "INPROGRESS"
-        self.mock_gvar.COMPLETED = "COMPLETED"
-        self.mock_gvar.filesLoadedCount = 0
-        self.mock_gvar.fileErrorMessages = ""
-
-        # Mocking datetime
-        self.mock_datetime = Mock()
-        self.mock_datetime.datetime.now.return_value = datetime.datetime(2023, 10, 26, 12, 0, 0)
-        SADRD_Dataparser.datetime = self.mock_datetime
-        SADRD_Dataparser.logging = Mock()
-
-    def test_parseAnnualStmntFile_success(self):
-        # Mocking dbops_obj.executeNIR_SP
-        mock_data = {'Cusip': ['123-45', '678-90'], 'DividendAmt': [100, 200]}
-        mock_df = pd.DataFrame(mock_data)
-        self.mock_dbops_obj.executeNIR_SP.return_value = mock_df
-
-        SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "")
-
-        self.mock_dbops_obj.executeNIR_SP.assert_called_once()
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.mock_dbops_obj.executeSADRD_SP.assert_called()
-        self.assertEqual(self.mock_gvar.filesLoadedCount, 1)
-
+        # Setup global variables
+        gvar.sadrd_settings = [MagicMock(settingName='SADRD_Year', settingValue='2023'),
+                              MagicMock(settingName='Valid_Company', settingValue='TestCompany')]
+        gvar.sadrdYear = 2023
+        gvar.user_id = 'test_user'
+        gvar.dataload_id = 1
+        gvar.filesLoadedCount = 0
+        gvar.fileErrorMessages = ''
+        gvar.INPROGRESS = 'INPROGRESS'
+        gvar.COMPLETED = 'COMPLETED'
+        
+        # Create mock for dboperations
+        self.mock_dbops = MagicMock(spec=dbops.dboperations())
+        
+        # Patch the dbops_obj in SADRD_Dataparser
+        self.patcher = patch('SADRD_Dataparser.dbops_obj', self.mock_dbops)
+        self.patcher.start()
+        
+    def tearDown(self):
+        self.patcher.stop()
+        
+    def test_parseAnnualStmntFile_success_part2_section1(self):
+        # Test data
+        company = "TestCompany"
+        partType = "Part 2 Section 1"
+        actionname = "test_action"
+        AnnualStmntYear = 2023
+        SecondaryValidation = ""
+        
+        # Mock database response
+        test_data = pd.DataFrame({
+            'Cusip': ['123456789', '987654321'],
+            'DividendAmt': [100.0, 200.0]
+        })
+        self.mock_dbops.executeNIR_SP.return_value = test_data
+        
+        # Execute function
+        parseAnnualStmntFile(company, partType, actionname, AnnualStmntYear, SecondaryValidation)
+        
+        # Verify calls
+        expected_sp = "[sadrd].[uspGenerateDP2S1FeedReportToSADRD]"
+        self.mock_dbops.executeNIR_SP.assert_called_once_with(expected_sp, 2023, "TestCompany")
+        
+        # Verify loadkey was inserted
+        self.mock_dbops.insert_dataloadkey.assert_called_once()
+        
+        # Verify data was loaded
+        self.mock_dbops.loaddata.assert_called()
+        
+        # Verify files loaded count was incremented
+        self.assertEqual(gvar.filesLoadedCount, 1)
+        
+    def test_parseAnnualStmntFile_success_part4(self):
+        # Test data
+        company = "TestCompany"
+        partType = "Part 4"
+        actionname = "test_action"
+        AnnualStmntYear = 2023
+        SecondaryValidation = ""
+        
+        # Mock database response
+        test_data = pd.DataFrame({
+            'Cusip': ['123456789', '987654321'],
+            'DividendAmt': [100.0, 200.0]
+        })
+        self.mock_dbops.executeNIR_SP.return_value = test_data
+        
+        # Execute function
+        parseAnnualStmntFile(company, partType, actionname, AnnualStmntYear, SecondaryValidation)
+        
+        # Verify calls
+        expected_sp = "[sadrd].[uspGenerateDP4FeedReportToSADRD]"
+        self.mock_dbops.executeNIR_SP.assert_called_once_with(expected_sp, 2023, "TestCompany")
+        
     def test_parseAnnualStmntFile_secondary_validation(self):
-        SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "SecondaryValidation")
-        self.mock_dbops_obj.executeNIR_SP.assert_not_called()
-
-    def test_parseAnnualStmntFile_exception(self):
-        self.mock_dbops_obj.executeNIR_SP.side_effect = Exception("Test Exception")
-        with self.assertRaises(Exception):
-            SADRD_Dataparser.parseAnnualStmntFile("CompanyA", "Part 2 Section 1", "test_action", 2023, "")
-
-    def test_parseCusipQualFTCFile_secondary_validation_errors(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "InvalidCompany"
-        mock_sheet1.sheet_state = "visible"
-        mock_excel.book.worksheets = [mock_sheet1]
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E020" in self.mock_gvar.fileErrorMessages)
-
-    def test_parseCusipQualFTCFile_secondary_validation_year_error(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "CompanyA"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2022], 'Company': ['CompanyA']})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
-        with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E005" in self.mock_gvar.fileErrorMessages)
-
+        # Test data
+        company = "TestCompany"
+        partType = "Part 2 Section 1"
+        actionname = "test_action"
+        AnnualStmntYear = 2023
+        SecondaryValidation = "Y"
+        
+        # Execute function
+        parseAnnualStmntFile(company, partType, actionname, AnnualStmntYear, SecondaryValidation)
+        
+        # Verify no database calls were made
+        self.mock_dbops.executeNIR_SP.assert_not_called()
+        self.mock_dbops.insert_dataloadkey.assert_not_called()
+        
     def test_parseCusipQualFTCFile_success(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "CompanyA"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2023], 'Company': ['CompanyA'], 'Cusip': ['123'], 'CusipName': ['TestCusip'], 'Bank': ['TestBank'], 'FTC': [100], 'QualPct': [50]})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
+        # Test data
+        actionname = "test_action"
+        inpfile = "JHFunds_test.xlsx"
+        UIYear = 2023
+        SecondaryValidation = ""
+        
+        # Create a temporary test file
+        with open(inpfile, 'w') as f:
+            f.write("Test content")
+            
+        # Mock Excel file parsing
+        mock_sheet = MagicMock()
+        mock_sheet.title = "TestCompany"
+        mock_sheet.sheet_state = "visible"
+        
+        mock_excel = MagicMock()
+        mock_excel.book.worksheets = [mock_sheet]
+        mock_excel.parse.return_value = pd.DataFrame({
+            'Year': [2023],
+            'Company': ['TestCompany'],
+            'Cusip': ['123456789'],
+            'CusipName': ['Test Cusip'],
+            'Bank': ['Test Bank'],
+            'FTC': [0.5],
+            'QualPct': [0.8]
+        })
+        
         with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "")
-
-        self.mock_dbops_obj.insert_dataloadkey.assert_called()
-        self.mock_dbops_obj.loaddata.assert_called()
-        self.assertEqual(self.mock_gvar.filesLoadedCount, 1)
-
-    def test_parseCusipQualFTCFile_exception(self):
-        with patch('pandas.ExcelFile', side_effect=Exception("Test Exception")):
-            with self.assertRaises(Exception):
-                SADRD_Dataparser.parseCusipQualFTCFile("test_action", "test.xlsx", 2023, "")
-
-    def test_parseJHFundsFTCGrossupFile_secondary_validation_year_error(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "Sheet1"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2022], 'Quarter': [3]})
-        mock_excel.parse.return_value = mock_df
-        mock_excel.book.worksheets = [mock_sheet1]
-
+            parseCusipQualFTCFile(actionname, inpfile, UIYear, SecondaryValidation)
+        
+        # Verify calls
+        self.mock_dbops.insert_dataloadkey.assert_called_once()
+        self.mock_dbops.loaddata.assert_called_once()
+        
+        # Clean up
+        os.remove(inpfile)
+        
+    def test_parseCusipQualFTCFile_invalid_company(self):
+        # Test data
+        actionname = "test_action"
+        inpfile = "JHFunds_test.xlsx"
+        UIYear = 2023
+        SecondaryValidation = ""
+        
+        # Create a temporary test file
+        with open(inpfile, 'w') as f:
+            f.write("Test content")
+            
+        # Mock Excel file parsing with invalid company
+        mock_sheet = MagicMock()
+        mock_sheet.title = "InvalidCompany"
+        mock_sheet.sheet_state = "visible"
+        
+        mock_excel = MagicMock()
+        mock_excel.book.worksheets = [mock_sheet]
+        
         with patch('pandas.ExcelFile', return_value=mock_excel):
-            SADRD_Dataparser.parseJHFundsFTCGrossupFile("test_action", "2023_Q3_JHFunds.xlsx", 2023, "SecondaryValidation")
-        self.assertTrue("E005" in self.mock_gvar.fileErrorMessages)
-
+            parseCusipQualFTCFile(actionname, inpfile, UIYear, SecondaryValidation)
+        
+        # Verify error message was set
+        self.assertIn("E020", gvar.fileErrorMessages)
+        
+        # Clean up
+        os.remove(inpfile)
+        
     def test_parseJHFundsFTCGrossupFile_success(self):
-        mock_excel = Mock()
-        mock_sheet1 = Mock()
-        mock_sheet1.title = "Sheet1"
-        mock_sheet1.sheet_state = "visible"
-        mock_df = pd.DataFrame({'Year': [2023], 'Quarter': [3], 'Bank': ['TestBank'], 'Trust': ['TestTrust'], 'JHNY%Share': [10], 'JHUSA%Share': [20], 'Other%Share': [30], 'Total%Share': [60], 'Fund Name': ['TestFund'], 'JHNY-Div': [100], 'JHUSA-Div': [200], 'Other-Div': [300], 'Total All-Div': [600]})
-        mock_excel.parse.return_value = mock_df
+        # Test data
+        actionname = "test_action"
+        inpfile = "2023_Q1_JHFunds.xlsx"
+        FTCGrossupYear = 2023
+        SecondaryValidation = ""
+        
+        # Create a temporary test file
+        with open(inpfile, 'w') as f:
+            f.write("Test content")
+            
+        # Mock Excel file parsing
+        mock_sheet = MagicMock()
+        mock_sheet.title = "Sheet1"
+        mock_sheet.sheet_state = "visible"
+        
+        mock_excel = MagicMock()
+        mock_excel.book.worksheets = [mock_sheet]
+        mock_excel.parse.return_value = pd.DataFrame({
+            'Year': [2023],
+            'Quarter': [1],
+            'Bank': ['Test Bank'],
+            'Trust': ['Test Trust'],
+            'JHNY%Share': [0.3],
+            'JHUSA%Share': [0.4],
+            'Other%Share': [0.3],
+            'Total%Share': [1.0],
+            'Fund Name': ['Test Fund'],
+            'JHNY-Div': [100.0],
+            'JHUSA-Div': [150.0],
+            'Other-Div': [50.0],
+            'Total All-Div': [300.0]
+        })
+        
+        with patch('pandas.ExcelFile', return_value=mock_excel):
+            parseJHFundsFTCGrossupFile(actionname, inpfile, FTCGrossupYear, SecondaryValidation)
+        
+        # Verify calls
+        self.mock_dbops.insert_dataloadkey.assert_called_once()
+        self.mock_dbops.loaddata.assert_called_once()
+        
+        # Clean up
+        os.remove(inpfile)
+        
+    def test_executeView_GetDetails_success(self):
+        # Test data
+        importType = "test_import"
+        cusipType = "test_cusip"
+        
+        # Mock database response
+        expected_result = pd.DataFrame({'col1': [1, 2], 'col2': ['a', 'b']})
+        self.mock_dbops.executeView_GetDetails.return_value = expected_result
+        
+        # Execute function
+        result = executeView_GetDetails(importType, cusipType)
+        
+        # Verify
+        self.mock_dbops.executeView_GetDetails.assert_called_once_with(importType, cusipType)
+        self.assertTrue(result.equals(expected_result))
+        
+    def test_Load_FundCusipDetails_success(self):
+        # Test data
+        actionname = "test_action"
+        dfCusipDetails = pd.DataFrame({
+            'Cusip': ['123456789'],
+            'FundName': ['Test Fund']
+        })
+        fundCusipYear = 2023
+        
+        # Execute function
+        Load_FundCusipDetails(actionname, dfCusipDetails, fundCusipYear)
+        
+        # Verify calls
+        self.mock_dbops.insert_dataloadkey.assert_called_once()
+        self.mock_dbops.loaddata.assert_called_once()
+        
+    def test_LoadVPADataToSADRD_GL_success(self):
+        # Test data
+        actionName = "test_action"
+        fundCusipYear = 2023
+        dataType = "GL"
+        
+        # Mock database responses
+        mock_vpa_data = pd.DataFrame({
+            'Year': [2023],
+            'Company': ['TestCompany'],
+            'Amount': [1000.0]
+        })
+        self.mock_dbops.GetVPAData.return_value = mock_vpa_data
+        
+        # Execute function
+        LoadVPADataToSADRD(actionName, fundCusipYear, dataType)
+        
+        # Verify calls
+        self.mock_dbops.GetVPAData.assert_called()
+        self.mock_dbops.truncatetable.assert_called_once_with('SADRD_FactsTemp_CntrlTotals_Input', "GL")
+        self.mock_dbops.InsertControlTotals.assert_called_once()
+        self.mock_dbops.loaddata.assert_called_once()
+        
+    def test_LoadVPADataToSADRD_SeparateAccounts_success(self):
+        # Test data
+        actionName = "test_action"
+        fundCusipYear = 2023
+        dataType = "SeparateAccounts"
+        
+        # Mock database responses
+        mock_vpa_data = pd.DataFrame({
+            'Year': [2023],
+            'Company': ['TestCompany'],
+            'Account': ['TestAccount']
+        })
+        self.mock_dbops.GetVPAData.return_value = mock_vpa_data
+        
+        # Execute function
+        LoadVPADataToSADRD(actionName, fundCusipYear, dataType)
+        
+        # Verify calls
+        self.mock_dbops.GetVPAData.assert_called()
+        self.mock_dbops.loaddata.assert_called_once()
+
+if __name__ == '__main__':
+    unittest.main()
